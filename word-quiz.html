@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flashcard Spelling Checker - Pages</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  .flashcard { max-width: 400px; margin: auto; text-align: center; }
+  .word { font-size: 2.5em; margin: 20px 0; }
+  input[type="text"] { font-size: 1.4em; padding: 5px; width: 100%; }
+  button { padding: 10px 20px; margin-top: 10px; font-size: 1em; }
+  .result { margin-top: 15px; font-weight: bold; font-size: 1.3em; }
+  .correct { color: green; }
+  .incorrect { color: red; }
+  .controls { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div class="flashcard">
+  <div class="controls">
+    <label for="pageSelect">Choose page: </label>
+    <select id="pageSelect"></select>
+  </div>
+  <div class="word" id="wordDisplay"></div>
+  <button id="speakBtn">🔊 Listen</button>
+  <input type="text" id="spellingInput" placeholder="Type the spelling here" autocomplete="off" />
+  <button id="checkBtn">Check Spelling</button>
+  <div class="result" id="resultDisplay"></div>
+  <button id="nextBtn" style="display:none;">Next Word</button>
+</div>
+
+<script>
+  // Array of pages, each is an array of words
+  const pages = [
+    ["example", "language", "programming", "javascript", "flashcard"],
+    ["apple", "banana", "cherry", "date", "elderberry"],
+    ["sun", "moon", "star", "planet", "galaxy"]
+  ];
+
+  // Helper to shuffle an array (Fisher-Yates)
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  // DOM elements
+  const pageSelect = document.getElementById('pageSelect');
+  const wordDisplay = document.getElementById('wordDisplay');
+  const speakBtn = document.getElementById('speakBtn');
+  const spellingInput = document.getElementById('spellingInput');
+  const checkBtn = document.getElementById('checkBtn');
+  const resultDisplay = document.getElementById('resultDisplay');
+  const nextBtn = document.getElementById('nextBtn');
+
+  let currentPage = 0;
+  let words = [];
+  let currentIndex = 0;
+
+  // Initialize dropdown
+  function populatePages() {
+    for (let i = 0; i < pages.length; i++) {
+      const option = document.createElement('option');
+      option.value = i;
+      option.textContent = `Page ${i + 1}`;
+      pageSelect.appendChild(option);
+    }
+  }
+
+  // Handle page selection
+  pageSelect.addEventListener('change', () => {
+    currentPage = parseInt(pageSelect.value);
+    startPage();
+  });
+
+  // Show a new word
+  function showWord() {
+    spellingInput.value = "";
+    resultDisplay.textContent = "";
+    resultDisplay.className = "result";
+    nextBtn.style.display = "none";
+    spellingInput.disabled = false;
+    checkBtn.disabled = false;
+    wordDisplay.textContent = "Spell this word:";
+  }
+
+  // Speak current word
+  function pronounceWord(word) {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(word);
+      speechSynthesis.speak(utterance);
+    } else {
+      alert('Speech synthesis not supported in this browser.');
+    }
+  }
+
+  speakBtn.addEventListener('click', () => {
+    pronounceWord(words[currentIndex]);
+  });
+
+  checkBtn.addEventListener('click', () => {
+    const userSpelling = spellingInput.value.trim().toLowerCase();
+    const correctWord = words[currentIndex];
+    if (userSpelling === correctWord.toLowerCase()) {
+      resultDisplay.textContent = `Correct! The spelling is: ${correctWord}`;
+      resultDisplay.className = "result correct";
+    } else {
+      resultDisplay.textContent = `Incorrect. The correct spelling is: ${correctWord}`;
+      resultDisplay.className = "result incorrect";
+    }
+    spellingInput.disabled = true;
+    checkBtn.disabled = true;
+    nextBtn.style.display = "inline-block";
+  });
+
+  nextBtn.addEventListener('click', () => {
+    currentIndex++;
+    if (currentIndex >= words.length) {
+      // reshuffle and restart for the page
+      startPage();
+    } else {
+      showWord();
+    }
+  });
+
+  // Start at the selected page, shuffle words
+  function startPage() {
+    words = shuffle([...pages[currentPage]]);
+    currentIndex = 0;
+    showWord();
+  }
+
+  populatePages();
+  // Select first page by default
+  pageSelect.selectedIndex = 0;
+  startPage();
+</script>
+
+</body>
+</html>
