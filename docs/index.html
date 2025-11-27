@@ -105,7 +105,7 @@
     const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
     utterance.voice = niceVoice;
     utterance.rate = 0.7;   // slower often sounds more natural
-    utterance.pitch = 1.1;  // 0–2, tweak to taste
+    utterance.pitch = 1.0;  // 0–2, tweak to taste
     synth.speak(utterance);
   } else {
     alert('Speech synthesis not supported in this browser.');
