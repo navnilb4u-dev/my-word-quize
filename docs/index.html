@@ -18,12 +18,8 @@
   .controls { margin-bottom: 20px; }
   .syllables { color: #0066cc; font-size: 1.3em; }
 </style>
-<!-- Load Hyphenator.js library from a CDN first -->
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/Hyphenator.min.js" 
-  integrity="sha512-WRSNesaGh5QBhZMN9KnGGrmLZDVcjzHWEixrvyq41lQEKOZ1tMqDEaE4rWrMzKJ8jxJZcvjTHg1QOMumvXYUqg==" 
-  crossorigin="anonymous" referrerpolicy="no-referrer">
-</script>
+<!-- Load Hyphenator.js version 5.3.0 from cdnjs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/Hyphenator.min.js"></script>
 </head>
 <body>
 
@@ -46,7 +42,7 @@
   <button id="nextBtn" style="display:none;">Next Word</button>
 </div>
 
-<!-- Move your application script here, after the HTML content and library loading -->
+<!-- All application JavaScript goes here -->
 <script>
   const pages = [
     ["example", "language", "programming", "javascript", "flashcard", "geranium"],
@@ -54,24 +50,43 @@
     ["sun", "moon", "star", "planet", "galaxy"]
   ];
 
-  // Configure Hyphenator: use '·' as the hyphen character and define English patterns
-  // This code now runs *after* the Hyphenator library is guaranteed to be defined.
-  Hyphenator.config({
-      hyphenchar: '·',
-      loaderpath: 'https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/Hyphenator.min.js',
-      'en': true // Enable English patterns
-  });
-  
-  // A wrapper function to use the Hyphenator asynchronously
-  async function getSyllableBreakdown(word) {
-      return new Promise((resolve, reject) => {
-          Hyphenator.hyphenate(word, function(result) {
-              resolve(result);
-          });
+  let getSyllableBreakdown;
+
+  // Listen for the specific event that the Hyphenator library fires when it is ready
+  document.addEventListener('onhyphenatorready', function() {
+      // Configure Hyphenator 5.3.0 with the correct properties
+      Hyphenator.config({
+          // Set the base path to where the pattern files are hosted on cdnjs
+          patterns: "cdnjs.cloudflare.com",
+          
+          // Use 'hyphenchar' to set the separator character
+          hyphenchar: '·',
+
+          // Set the default language explicitly
+          defaultLanguage: 'en',
+          
+          // You must explicitly tell the library to load patterns remotely
+          remoteResource: true
       });
-  }
+      
+      // Define our usable async function *after* config is set and the library is ready
+      getSyllableBreakdown = async function(word) {
+          return new Promise((resolve) => {
+              // The callback receives the hyphenated string directly
+              Hyphenator.hyphenate(word, function(result) {
+                  resolve(result);
+              });
+          });
+      };
+      
+      // Re-run the start sequence now that hyphenation is ready
+      startPage();
+  });
+
 
   document.addEventListener('DOMContentLoaded', function() {
+    // Note: The rest of your existing JS logic starts here.
+
     const pageSelect = document.getElementById('pageSelect');
     const counter = document.getElementById('counter');
     const wordDisplay = document.getElementById('wordDisplay');
@@ -152,8 +167,12 @@
         resultDisplay.className = "result incorrect";
       }
 
-      const syllabified = await getSyllableBreakdown(correctWord);
-      pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
+      if (typeof getSyllableBreakdown === 'function') {
+          const syllabified = await getSyllableBreakdown(correctWord);
+          pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
+      } else {
+          pronounceBreakdown.innerHTML = "Hyphenation library not loaded yet.";
+      }
 
       spellingInput.disabled = true;
       checkBtn.disabled = true;
@@ -174,10 +193,6 @@
       currentIndex = 0;
       showWord();
     }
-
-    // Initialize
-    pageSelect.selectedIndex = 0;
-    startPage();
   });
 </script>
 
