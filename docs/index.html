@@ -14,6 +14,7 @@
   .result { margin-top: 15px; font-weight: bold; font-size: 1.3em; }
   .correct { color: green; }
   .incorrect { color: red; }
+  #pronounceBreakdown { margin-top: 8px; font-size: 1.1em; font-style: italic; color: #666; }
   .controls { margin-bottom: 20px; }
 </style>
 </head>
@@ -30,13 +31,16 @@
   <input type="text" id="spellingInput" placeholder="Type the spelling here" autocomplete="off" />
   <button id="checkBtn">Check Spelling</button>
   <div class="result" id="resultDisplay"></div>
+  <div id="pronounceBreakdown"></div>
   <button id="nextBtn" style="display:none;">Next Word</button>
 </div>
 
 <script>
   const pages = [
-["almanac","hippies","samosas","campaign","pistachio","mosque","zombielike","warlock","colossus","convulsively","dimensional","garishly","graffitist","Everest","dexterity","cavorting","marauder","conscience","battlements","deferential","albatross","khaki","opalescent","asphalt","Yiddish","talcum","tranquilizer","equestrian","plaited","monsieur","manticores","prestigious","fraidycat","guttural","lo","mein","courier","sans","serif","psyche","stucco","Frankenstein","schema","et","cetera","vidimus","delphine","slough","archipelago","serape","sarape","puissance","pinioning","chignon","pheromone","galleon","magnanimous","chartreuse","wainscoting","Nehru"],
-];
+    ["example", "language", "programming", "javascript", "flashcard"],
+    ["apple", "banana", "cherry", "date", "elderberry"],
+    ["sun", "moon", "star", "planet", "galaxy"]
+  ];
 
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -53,11 +57,18 @@
   const spellingInput = document.getElementById('spellingInput');
   const checkBtn = document.getElementById('checkBtn');
   const resultDisplay = document.getElementById('resultDisplay');
+  const pronounceBreakdown = document.getElementById('pronounceBreakdown');
   const nextBtn = document.getElementById('nextBtn');
 
   let currentPage = 0;
   let words = [];
   let currentIndex = 0;
+
+  // Simple pronunciation breakdown (vowel-group based)
+  function getPronunciationBreakdown(word) {
+    const parts = word.match(/[bcdfghjklmnpqrstvwxyz]*[aeiouy]+[bcdfghjklmnpqrstvwxyz]*/gi) || [word];
+    return parts.join(" - ");
+  }
 
   function populatePages() {
     for (let i = 0; i < pages.length; i++) {
@@ -79,8 +90,9 @@
 
   function showWord() {
     spellingInput.value = "";
-    resultDisplay.textContent = "";
+    resultDisplay.innerHTML = "";
     resultDisplay.className = "result";
+    pronounceBreakdown.textContent = "";
     nextBtn.style.display = "none";
     spellingInput.disabled = false;
     checkBtn.disabled = false;
@@ -96,7 +108,7 @@
       const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
       utterance.voice = niceVoice;
       utterance.rate = 0.5;
-      utterance.pitch = 1.3;
+      utterance.pitch = 1.0;
       synth.speak(utterance);
     } else {
       alert('Speech synthesis not supported in this browser.');
@@ -110,13 +122,19 @@
   checkBtn.addEventListener('click', () => {
     const userSpelling = spellingInput.value.trim().toLowerCase();
     const correctWord = words[currentIndex];
+
     if (userSpelling === correctWord.toLowerCase()) {
-      resultDisplay.textContent = `Correct! The spelling is: ${correctWord}`;
+      resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
       resultDisplay.className = "result correct";
     } else {
-      resultDisplay.textContent = `Incorrect. The correct spelling is: "${correctWord}"`;
+      resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
       resultDisplay.className = "result incorrect";
     }
+
+    // Show pronunciation breakdown
+    pronounceBreakdown.textContent = 
+      `Pronunciation: ${getPronunciationBreakdown(correctWord)}`;
+
     spellingInput.disabled = true;
     checkBtn.disabled = true;
     nextBtn.style.display = "inline-block";
@@ -135,6 +153,11 @@
     words = shuffle([...pages[currentPage]]);
     currentIndex = 0;
     showWord();
+  }
+
+  // Load voices when available
+  if (speechSynthesis) {
+    speechSynthesis.onvoiceschanged = () => {};
   }
 
   populatePages();
