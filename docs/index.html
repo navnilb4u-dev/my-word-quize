@@ -8,6 +8,7 @@
   body { font-family: Arial, sans-serif; padding: 20px; }
   .flashcard { max-width: 400px; margin: auto; text-align: center; }
   .word { font-size: 2.5em; margin: 20px 0; }
+  #counter { font-size: 1.2em; margin-bottom: 10px; }
   input[type="text"] { font-size: 1.4em; padding: 5px; width: 100%; }
   button { padding: 10px 20px; margin-top: 10px; font-size: 1em; }
   .result { margin-top: 15px; font-weight: bold; font-size: 1.3em; }
@@ -20,9 +21,10 @@
 
 <div class="flashcard">
   <div class="controls">
-    <label for="pageSelect">Choose page #5: </label>
+    <label for="pageSelect">Choose page: </label>
     <select id="pageSelect"></select>
   </div>
+  <div id="counter"></div>
   <div class="word" id="wordDisplay"></div>
   <button id="speakBtn">🔊 Listen</button>
   <input type="text" id="spellingInput" placeholder="Type the spelling here" autocomplete="off" />
@@ -32,12 +34,10 @@
 </div>
 
 <script>
-  // Array of pages, each is an array of words
   const pages = [
-    ["almanac","hippies","samosas","campaign","pistachio","mosque","zombielike","warlock","colossus","convulsively","dimensional","garishly","graffitist","Everest","dexterity","cavorting","marauder","conscience","battlements","deferential","albatross","khaki","opalescent","asphalt","Yiddish","talcum","tranquilizer","equestrian","plaited","monsieur","manticores","prestigious","fraidycat","guttural","lo","mein","courier","sans","serif","psyche","stucco","Frankenstein","schema","et","cetera","vidimus","delphine","slough","archipelago","serape","sarape","puissance","pinioning","chignon","pheromone","galleon","magnanimous","chartreuse","wainscoting","Nehru"],
-  ];
+["almanac","hippies","samosas","campaign","pistachio","mosque","zombielike","warlock","colossus","convulsively","dimensional","garishly","graffitist","Everest","dexterity","cavorting","marauder","conscience","battlements","deferential","albatross","khaki","opalescent","asphalt","Yiddish","talcum","tranquilizer","equestrian","plaited","monsieur","manticores","prestigious","fraidycat","guttural","lo","mein","courier","sans","serif","psyche","stucco","Frankenstein","schema","et","cetera","vidimus","delphine","slough","archipelago","serape","sarape","puissance","pinioning","chignon","pheromone","galleon","magnanimous","chartreuse","wainscoting","Nehru"],
+];
 
-  // Helper to shuffle an array (Fisher-Yates)
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -46,8 +46,8 @@
     return array;
   }
 
-  // DOM elements
   const pageSelect = document.getElementById('pageSelect');
+  const counter = document.getElementById('counter');
   const wordDisplay = document.getElementById('wordDisplay');
   const speakBtn = document.getElementById('speakBtn');
   const spellingInput = document.getElementById('spellingInput');
@@ -59,7 +59,6 @@
   let words = [];
   let currentIndex = 0;
 
-  // Initialize dropdown
   function populatePages() {
     for (let i = 0; i < pages.length; i++) {
       const option = document.createElement('option');
@@ -69,13 +68,15 @@
     }
   }
 
-  // Handle page selection
+  function updateCounter() {
+    counter.textContent = `Word ${currentIndex + 1} of ${words.length}`;
+  }
+
   pageSelect.addEventListener('change', () => {
     currentPage = parseInt(pageSelect.value);
     startPage();
   });
 
-  // Show a new word
   function showWord() {
     spellingInput.value = "";
     resultDisplay.textContent = "";
@@ -84,34 +85,23 @@
     spellingInput.disabled = false;
     checkBtn.disabled = false;
     wordDisplay.textContent = "Spell this word:";
+    updateCounter();
   }
 
-  // Speak current word
-  function pronounceWord1(word) {
+  function pronounceWord(word) {
     if ('speechSynthesis' in window) {
+      const synth = window.speechSynthesis;
+      const voices = synth.getVoices();
       const utterance = new SpeechSynthesisUtterance(word);
-      speechSynthesis.speak(utterance);
+      const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+      utterance.voice = niceVoice;
+      utterance.rate = 0.5;
+      utterance.pitch = 1.3;
+      synth.speak(utterance);
     } else {
       alert('Speech synthesis not supported in this browser.');
     }
   }
-
-  function pronounceWord(word) {
-  if ('speechSynthesis' in window) {
-    const synth = window.speechSynthesis;
-    const voices = synth.getVoices(); // may need onvoiceschanged event
-    const utterance = new SpeechSynthesisUtterance(word);
-    // Try to pick an English voice you like:
-    const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-    utterance.voice = niceVoice;
-    utterance.rate = 0.5;   // uslower often sounds more natural
-    utterance.pitch = 1.4;  // 0–2, tweak to taste
-    synth.speak(utterance);
-  } else {
-    alert('Speech synthesis not supported in this browser.');
-  }
-}
-
 
   speakBtn.addEventListener('click', () => {
     pronounceWord(words[currentIndex]);
@@ -124,7 +114,7 @@
       resultDisplay.textContent = `Correct! The spelling is: ${correctWord}`;
       resultDisplay.className = "result correct";
     } else {
-      resultDisplay.textContent = `Incorrect. The correct spelling is: ${correctWord}`;
+      resultDisplay.textContent = `Incorrect. The correct spelling is: "${correctWord}"`;
       resultDisplay.className = "result incorrect";
     }
     spellingInput.disabled = true;
@@ -135,14 +125,12 @@
   nextBtn.addEventListener('click', () => {
     currentIndex++;
     if (currentIndex >= words.length) {
-      // reshuffle and restart for the page
       startPage();
     } else {
       showWord();
     }
   });
 
-  // Start at the selected page, shuffle words
   function startPage() {
     words = shuffle([...pages[currentPage]]);
     currentIndex = 0;
@@ -150,7 +138,6 @@
   }
 
   populatePages();
-  // Select first page by default
   pageSelect.selectedIndex = 0;
   startPage();
 </script>
