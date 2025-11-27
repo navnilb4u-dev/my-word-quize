@@ -135,10 +135,24 @@
     }
 
     // Play pronunciation audio URL
+    // Play pronunciation audio URL. Returns a Promise that resolves `true` when playback
+    // starts successfully, or `false` if playback fails or no URL provided.
     function playPronunciation(audioUrl) {
-      if (audioUrl) {
+      if (!audioUrl) return Promise.resolve(false);
+      try {
         const audio = new Audio(audioUrl);
-        audio.play().catch(e => console.warn('Audio play failed:', e));
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          return playPromise.then(() => true).catch(e => {
+            console.warn('Audio play failed:', e);
+            return false;
+          });
+        }
+        // If play() did not return a promise, assume success.
+        return Promise.resolve(true);
+      } catch (e) {
+        console.warn('Audio play threw:', e);
+        return Promise.resolve(false);
       }
     }
 
@@ -489,34 +503,54 @@
 
         const infoEl = document.getElementById('wordInfo');
         infoEl.textContent = 'Loading definition...';
-
+        let playedDictAudio = false;
         // Try to fetch dictionary details (definition, phonetic, audio)
         try {
           const details = await getWordDetails(word.toLowerCase());
+          const breakdown = getSyllableBreakdown(word);
+
+          
           if (details) {
             const def = details.definition || 'No definition found.';
             const phon = details.phonetic || '';
-            infoEl.innerHTML = `<div><strong>${word}</strong> ${phon ? ' — ' + phon : ''}</div><div style="margin-top:6px">${def}</div>`;
+            // Show definition AND syllable breakdown. If audio exists, attempt to play it,
+            // but always provide a fallback TTS button the user can press.
+            infoEl.innerHTML = `
+              <div><strong>${word}</strong> ${phon ? ' — ' + phon : ''}</div>
+              <div style="margin-top:6px">${def}</div>
+              <div style="margin-top:8px" class="syllables">${breakdown}</div>
+            `;
 
+            // If audio URL is available, try to play it (may fail due to CORS).
             if (details.audioUrl) {
-              // Play audio from dictionary (may be CORS-friendly)
-              playPronunciation(details.audioUrl);
-              return;
+              try {
+                playedDictAudio = await playPronunciation(details.audioUrl);
+              } catch (e) {
+                playedDictAudio = false;
+              }
             }
+
           } else {
-            // No dictionary entry found — show the word and a syllable breakdown as a fallback.
-            const breakdown = getSyllableBreakdown(word);
-            infoEl.innerHTML = `<div><strong>${word}</strong></div><div style="margin-top:6px">${breakdown}</div>`;
+            // No dictionary entry found — show the word and a syllable breakdown and TTS button.
+            infoEl.innerHTML = `
+              <div><strong>${word}</strong></div>
+              <div style="margin-top:6px" class="syllables">${breakdown}</div>
+            `;
           }
         } catch (e) {
           console.warn('Error fetching dictionary entry', e);
-          // On error, also fallback to showing the word and syllable breakdown.
+          // On error, fallback to showing the word and syllable breakdown plus TTS button.
           const breakdown = getSyllableBreakdown(word);
-          infoEl.innerHTML = `<div><strong>${word}</strong></div><div style="margin-top:6px">${breakdown}</div>`;
+          infoEl.innerHTML = `
+            <div><strong>${word}</strong></div>
+            <div style="margin-top:6px" class="syllables">${breakdown}</div>
+          `;
         }
 
-        // Fallback: use browser TTS if no audio URL
-        pronounceWord(word);
+        // If dictionary audio did not play (no URL, CORS or playback error), use TTS fallback.
+        if (!playedDictAudio) {
+          pronounceWord(word);
+        }
       });
 
       // On touchstart/pointerdown we try to warm up speechSynthesis and voices on mobile (iOS WebKit-based browsers).
