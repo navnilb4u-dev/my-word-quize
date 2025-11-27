@@ -50,164 +50,138 @@
     ["sun", "moon", "star", "planet", "galaxy"]
   ];
 
-  function shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-  }
-
-  const pageSelect = document.getElementById('pageSelect');
-  const counter = document.getElementById('counter');
-  const wordDisplay = document.getElementById('wordDisplay');
-  const speakBtn = document.getElementById('speakBtn');
-  const spellingInput = document.getElementById('spellingInput');
-  const checkBtn = document.getElementById('checkBtn');
-  const resultDisplay = document.getElementById('resultDisplay');
-  const pronounceBreakdown = document.getElementById('pronounceBreakdown');
-  const nextBtn = document.getElementById('nextBtn');
-
   let currentPage = 0;
   let words = [];
   let currentIndex = 0;
   let hyphenopolyReady = false;
 
-  // Configure Hyphenopoly with proper onReady detection
-  Hyphenopoly.config({
-    require: {
-      "en-us": "FORCEHYPHENOPOLY"
-    },
-    paths: {
-      patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
-      maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
-    },
-    setup: {
-      classnames: {
-        "syllables": {
-          hyphen: "·",
-          leftmin: 0,
-          rightmin: 0
-        }
+  // Wait for DOM to be ready before accessing elements
+  document.addEventListener('DOMContentLoaded', function() {
+    // Get all DOM elements after DOM is ready
+    const pageSelect = document.getElementById('pageSelect');
+    const counter = document.getElementById('counter');
+    const wordDisplay = document.getElementById('wordDisplay');
+    const speakBtn = document.getElementById('speakBtn');
+    const spellingInput = document.getElementById('spellingInput');
+    const checkBtn = document.getElementById('checkBtn');
+    const resultDisplay = document.getElementById('resultDisplay');
+    const pronounceBreakdown = document.getElementById('pronounceBreakdown');
+    const nextBtn = document.getElementById('nextBtn');
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
       }
-    }
-  });
-
-  // Wait for Hyphenopoly to be ready
-  Hyphenopoly.ready().then(() => {
-    hyphenopolyReady = true;
-    console.log("Hyphenopoly ready!");
-  }).catch(() => {
-    console.log("Hyphenopoly not available, using fallback");
-  });
-
-  function getSyllableBreakdown(word, callback) {
-    if (!hyphenopolyReady || !window.Hyphenopoly) {
-      callback(word); // Fallback to original word
-      return;
-    }
-    
-    const tempSpan = document.createElement('span');
-    tempSpan.className = 'syllables';
-    tempSpan.textContent = word;
-    document.body.appendChild(tempSpan);
-    
-    // Wait for hyphenation to process
-    setTimeout(() => {
-      const syllabified = tempSpan.textContent;
-      document.body.removeChild(tempSpan);
-      callback(syllabified);
-    }, 300);
-  }
-
-  function populatePages() {
-    for (let i = 0; i < pages.length; i++) {
-      const option = document.createElement('option');
-      option.value = i;
-      option.textContent = `Page ${i + 1}`;
-      pageSelect.appendChild(option);
-    }
-  }
-
-  function updateCounter() {
-    counter.textContent = `Word ${currentIndex + 1} of ${words.length}`;
-  }
-
-  pageSelect.addEventListener('change', () => {
-    currentPage = parseInt(pageSelect.value);
-    startPage();
-  });
-
-  function showWord() {
-    spellingInput.value = "";
-    resultDisplay.innerHTML = "";
-    resultDisplay.className = "result";
-    pronounceBreakdown.textContent = "";
-    nextBtn.style.display = "none";
-    spellingInput.disabled = false;
-    checkBtn.disabled = false;
-    wordDisplay.textContent = "Spell this word:";
-    updateCounter();
-  }
-
-  function pronounceWord(word) {
-    if ('speechSynthesis' in window) {
-      const synth = window.speechSynthesis;
-      const voices = synth.getVoices();
-      const utterance = new SpeechSynthesisUtterance(word);
-      const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-      utterance.voice = niceVoice;
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      synth.speak(utterance);
-    }
-  }
-
-  speakBtn.addEventListener('click', () => {
-    pronounceWord(words[currentIndex]);
-  });
-
-  checkBtn.addEventListener('click', () => {
-    const userSpelling = spellingInput.value.trim().toLowerCase();
-    const correctWord = words[currentIndex];
-
-    if (userSpelling === correctWord.toLowerCase()) {
-      resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
-      resultDisplay.className = "result correct";
-    } else {
-      resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
-      resultDisplay.className = "result incorrect";
+      return array;
     }
 
-    // Show syllable breakdown with dots (ge·ra·ni·um)
-    getSyllableBreakdown(correctWord, (syllabified) => {
-      pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
+    function updateCounter() {
+      counter.textContent = `Word ${currentIndex + 1} of ${words.length}`;
+    }
+
+    pageSelect.addEventListener('change', () => {
+      currentPage = parseInt(pageSelect.value);
+      startPage();
     });
 
-    spellingInput.disabled = true;
-    checkBtn.disabled = true;
-    nextBtn.style.display = "inline-block";
-  });
+    function showWord() {
+      spellingInput.value = "";
+      resultDisplay.innerHTML = "";
+      resultDisplay.className = "result";
+      pronounceBreakdown.textContent = "";
+      nextBtn.style.display = "none";
+      spellingInput.disabled = false;
+      checkBtn.disabled = false;
+      wordDisplay.textContent = "Spell this word:";
+      updateCounter();
+    }
 
-  nextBtn.addEventListener('click', () => {
-    currentIndex++;
-    if (currentIndex >= words.length) {
-      startPage();
-    } else {
+    function pronounceWord(word) {
+      if ('speechSynthesis' in window) {
+        const synth = window.speechSynthesis;
+        // Wait for voices to load
+        if (synth.getVoices().length === 0) {
+          synth.onvoiceschanged = () => pronounceWord(word);
+          return;
+        }
+        const voices = synth.getVoices();
+        const utterance = new SpeechSynthesisUtterance(word);
+        const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+        utterance.voice = niceVoice;
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        synth.speak(utterance);
+      } else {
+        alert('Speech synthesis not supported');
+      }
+    }
+
+    speakBtn.addEventListener('click', () => {
+      pronounceWord(words[currentIndex]);
+    });
+
+    checkBtn.addEventListener('click', () => {
+      const userSpelling = spellingInput.value.trim().toLowerCase();
+      const correctWord = words[currentIndex];
+
+      if (userSpelling === correctWord.toLowerCase()) {
+        resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
+        resultDisplay.className = "result correct";
+      } else {
+        resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
+        resultDisplay.className = "result incorrect";
+      }
+
+      // Fallback syllable display (Hyphenopoly takes time to load)
+      pronounceBreakdown.innerHTML = `<span class="syllables">${correctWord}</span>`;
+
+      spellingInput.disabled = true;
+      checkBtn.disabled = true;
+      nextBtn.style.display = "inline-block";
+    });
+
+    nextBtn.addEventListener('click', () => {
+      currentIndex++;
+      if (currentIndex >= words.length) {
+        startPage();
+      } else {
+        showWord();
+      }
+    });
+
+    function startPage() {
+      words = shuffle([...pages[currentPage]]);
+      currentIndex = 0;
       showWord();
     }
+
+    // Initialize
+    pageSelect.selectedIndex = 0;
+    startPage();
+
+    // Configure Hyphenopoly AFTER DOM elements are available
+    if (typeof Hyphenopoly !== 'undefined') {
+      Hyphenopoly.config({
+        require: {
+          "en-us": "FORCEHYPHENOPOLY"
+        },
+        paths: {
+          patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
+          maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
+        },
+        setup: {
+          classnames: {
+            "syllables": {
+              hyphen: "·",
+              leftmin: 0,
+              rightmin: 0
+            }
+          }
+        }
+      });
+    }
   });
-
-  function startPage() {
-    words = shuffle([...pages[currentPage]]);
-    currentIndex = 0;
-    showWord();
-  }
-
-  // Initialize app
-  pageSelect.selectedIndex = 0;
-  startPage();
 </script>
-
 </body>
 </html>
