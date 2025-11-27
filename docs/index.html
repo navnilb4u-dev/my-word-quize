@@ -18,6 +18,8 @@
   .controls { margin-bottom: 20px; }
   .syllables { color: #0066cc; font-size: 1.3em; }
 </style>
+<!-- Load Hyphenator.js library from a CDN -->
+<script src="cdn.jsdelivr.net"></script>
 </head>
 <body>
 
@@ -47,27 +49,23 @@
     ["sun", "moon", "star", "planet", "galaxy"]
   ];
 
-  // Pure JavaScript syllable breaker - geranium → ge·ra·ni·um
-  function getSyllableBreakdown(word) {
-    const vowels = 'aeiouyAEIOUY';
-    let syllables = [];
-    let current = '';
-    
-    for (let i = 0; i < word.length; i++) {
-      current += word[i];
-      
-      // Check if next letter exists and is a vowel (start of new syllable)
-      if (i < word.length - 1 && vowels.includes(word[i + 1])) {
-        syllables.push(current);
-        current = '';
-      }
-    }
-    
-    if (current) syllables.push(current);
-    
-    // Join with dots
-    return syllables.join('·');
+  // Configure Hyphenator: use '·' as the hyphen character and define English patterns
+  Hyphenator.config({
+      hyphenchar: '·',
+      loaderpath: 'cdn.jsdelivr.net',
+      'en': true // Enable English patterns
+  });
+  
+  // A wrapper function to use the Hyphenator asynchronously
+  async function getSyllableBreakdown(word) {
+      // The Hyphenator library handles the heavy lifting
+      return new Promise((resolve, reject) => {
+          Hyphenator.hyphenate(word, function(result) {
+              resolve(result);
+          });
+      });
   }
+
 
   document.addEventListener('DOMContentLoaded', function() {
     const pageSelect = document.getElementById('pageSelect');
@@ -116,6 +114,7 @@
     function pronounceWord(word) {
       if ('speechSynthesis' in window) {
         const synth = window.speechSynthesis;
+        // Check for voices availability
         if (synth.getVoices().length === 0) {
           synth.onvoiceschanged = () => pronounceWord(word);
           return;
@@ -138,7 +137,8 @@
       }
     });
 
-    checkBtn.addEventListener('click', () => {
+    // Modified to be async and call the Hyphenator library
+    checkBtn.addEventListener('click', async () => {
       const userSpelling = spellingInput.value.trim().toLowerCase();
       const correctWord = words[currentIndex];
 
@@ -150,8 +150,8 @@
         resultDisplay.className = "result incorrect";
       }
 
-      // Show syllable breakdown IMMEDIATELY (no external library needed)
-      const syllabified = getSyllableBreakdown(correctWord);
+      // Use the async function to get the correct syllable breakdown
+      const syllabified = await getSyllableBreakdown(correctWord);
       pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
 
       spellingInput.disabled = true;
