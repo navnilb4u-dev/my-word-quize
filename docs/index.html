@@ -40,9 +40,6 @@
   <button id="nextBtn" style="display:none;">Next Word</button>
 </div>
 
-<!-- Hyphenopoly.js from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/hyphenopoly@2/Hyphenopoly_Loader.js"></script>
-
 <script>
   const pages = [
     ["example", "language", "programming", "javascript", "flashcard", "geranium"],
@@ -50,14 +47,29 @@
     ["sun", "moon", "star", "planet", "galaxy"]
   ];
 
-  let currentPage = 0;
-  let words = [];
-  let currentIndex = 0;
-  let hyphenopolyReady = false;
+  // Pure JavaScript syllable breaker - geranium → ge·ra·ni·um
+  function getSyllableBreakdown(word) {
+    const vowels = 'aeiouyAEIOUY';
+    let syllables = [];
+    let current = '';
+    
+    for (let i = 0; i < word.length; i++) {
+      current += word[i];
+      
+      // Check if next letter exists and is a vowel (start of new syllable)
+      if (i < word.length - 1 && vowels.includes(word[i + 1])) {
+        syllables.push(current);
+        current = '';
+      }
+    }
+    
+    if (current) syllables.push(current);
+    
+    // Join with dots
+    return syllables.join('·');
+  }
 
-  // Wait for DOM to be ready before accessing elements
   document.addEventListener('DOMContentLoaded', function() {
-    // Get all DOM elements after DOM is ready
     const pageSelect = document.getElementById('pageSelect');
     const counter = document.getElementById('counter');
     const wordDisplay = document.getElementById('wordDisplay');
@@ -67,6 +79,10 @@
     const resultDisplay = document.getElementById('resultDisplay');
     const pronounceBreakdown = document.getElementById('pronounceBreakdown');
     const nextBtn = document.getElementById('nextBtn');
+
+    let currentPage = 0;
+    let words = [];
+    let currentIndex = 0;
 
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
@@ -100,7 +116,6 @@
     function pronounceWord(word) {
       if ('speechSynthesis' in window) {
         const synth = window.speechSynthesis;
-        // Wait for voices to load
         if (synth.getVoices().length === 0) {
           synth.onvoiceschanged = () => pronounceWord(word);
           return;
@@ -118,7 +133,9 @@
     }
 
     speakBtn.addEventListener('click', () => {
-      pronounceWord(words[currentIndex]);
+      if (words[currentIndex]) {
+        pronounceWord(words[currentIndex]);
+      }
     });
 
     checkBtn.addEventListener('click', () => {
@@ -133,8 +150,9 @@
         resultDisplay.className = "result incorrect";
       }
 
-      // Fallback syllable display (Hyphenopoly takes time to load)
-      pronounceBreakdown.innerHTML = `<span class="syllables">${correctWord}</span>`;
+      // Show syllable breakdown IMMEDIATELY (no external library needed)
+      const syllabified = getSyllableBreakdown(correctWord);
+      pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
 
       spellingInput.disabled = true;
       checkBtn.disabled = true;
@@ -159,29 +177,8 @@
     // Initialize
     pageSelect.selectedIndex = 0;
     startPage();
-
-    // Configure Hyphenopoly AFTER DOM elements are available
-    if (typeof Hyphenopoly !== 'undefined') {
-      Hyphenopoly.config({
-        require: {
-          "en-us": "FORCEHYPHENOPOLY"
-        },
-        paths: {
-          patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
-          maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
-        },
-        setup: {
-          classnames: {
-            "syllables": {
-              hyphen: "·",
-              leftmin: 0,
-              rightmin: 0
-            }
-          }
-        }
-      });
-    }
   });
 </script>
+
 </body>
 </html>
