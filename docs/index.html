@@ -87,7 +87,7 @@
   }
 
   // Speak current word
-  function pronounceWord(word) {
+  function pronounceWord1(word) {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(word);
       speechSynthesis.speak(utterance);
@@ -95,6 +95,23 @@
       alert('Speech synthesis not supported in this browser.');
     }
   }
+
+  function pronounceWord(word) {
+  if ('speechSynthesis' in window) {
+    const synth = window.speechSynthesis;
+    const voices = synth.getVoices(); // may need onvoiceschanged event
+    const utterance = new SpeechSynthesisUtterance(word);
+    // Try to pick an English voice you like:
+    const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+    utterance.voice = niceVoice;
+    utterance.rate = 0.9;   // slower often sounds more natural
+    utterance.pitch = 1.0;  // 0–2, tweak to taste
+    synth.speak(utterance);
+  } else {
+    alert('Speech synthesis not supported in this browser.');
+  }
+}
+
 
   speakBtn.addEventListener('click', () => {
     pronounceWord(words[currentIndex]);
