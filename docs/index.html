@@ -18,7 +18,7 @@
   .controls { margin-bottom: 20px; }
   .syllables { color: #0066cc; font-size: 1.3em; }
 </style>
-<!-- Load Hyphenator.js library from a CDN -->
+<!-- Load Hyphenator.js library from a CDN first -->
 <script src="cdn.jsdelivr.net"></script>
 </head>
 <body>
@@ -42,6 +42,7 @@
   <button id="nextBtn" style="display:none;">Next Word</button>
 </div>
 
+<!-- Move your application script here, after the HTML content and library loading -->
 <script>
   const pages = [
     ["example", "language", "programming", "javascript", "flashcard", "geranium"],
@@ -50,6 +51,7 @@
   ];
 
   // Configure Hyphenator: use '·' as the hyphen character and define English patterns
+  // This code now runs *after* the Hyphenator library is guaranteed to be defined.
   Hyphenator.config({
       hyphenchar: '·',
       loaderpath: 'cdn.jsdelivr.net',
@@ -58,14 +60,12 @@
   
   // A wrapper function to use the Hyphenator asynchronously
   async function getSyllableBreakdown(word) {
-      // The Hyphenator library handles the heavy lifting
       return new Promise((resolve, reject) => {
           Hyphenator.hyphenate(word, function(result) {
               resolve(result);
           });
       });
   }
-
 
   document.addEventListener('DOMContentLoaded', function() {
     const pageSelect = document.getElementById('pageSelect');
@@ -114,14 +114,13 @@
     function pronounceWord(word) {
       if ('speechSynthesis' in window) {
         const synth = window.speechSynthesis;
-        // Check for voices availability
         if (synth.getVoices().length === 0) {
           synth.onvoiceschanged = () => pronounceWord(word);
           return;
         }
         const voices = synth.getVoices();
         const utterance = new SpeechSynthesisUtterance(word);
-        const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+        const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices;
         utterance.voice = niceVoice;
         utterance.rate = 0.9;
         utterance.pitch = 1.0;
@@ -137,7 +136,6 @@
       }
     });
 
-    // Modified to be async and call the Hyphenator library
     checkBtn.addEventListener('click', async () => {
       const userSpelling = spellingInput.value.trim().toLowerCase();
       const correctWord = words[currentIndex];
@@ -150,7 +148,6 @@
         resultDisplay.className = "result incorrect";
       }
 
-      // Use the async function to get the correct syllable breakdown
       const syllabified = await getSyllableBreakdown(correctWord);
       pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
 
