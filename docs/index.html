@@ -64,19 +64,22 @@
   let words = [];
   let currentIndex = 0;
 
-  // Datamuse API call to get syllables count and breakdown
-  async function getDatamusePronunciation(word) {
+  // Datamuse API call to get syllables as comma separated list
+  async function getDatamuseSyllables(word) {
     try {
       const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=s`);
       const data = await response.json();
-      if (data[0] && data[0].numSyllables) {
-        // Just show syllable count, or try to display itself as chunked word:
-        return `Syllables: ${data[0].numSyllables}`;
+      if (data[0] && data[0].syllables && data[0].syllables.count) {
+        // data[0].syllables.list contains syllable arrays
+        if (data[0].syllables.list && data[0].syllables.list.length > 0) {
+          return 'Syllables: ' + data[0].syllables.list[0].join(', ');
+        }
+        return 'Number of syllables: ' + data[0].syllables.count;
       }
     } catch (e) {
       // fail silently and fallback
     }
-    return "Pronunciation info unavailable";
+    return 'Syllables info unavailable';
   }
 
   function populatePages() {
@@ -140,9 +143,9 @@
       resultDisplay.className = "result incorrect";
     }
 
-    // Fetch pronunciation info from Datamuse API
-    const phonetic = await getDatamusePronunciation(correctWord);
-    pronounceBreakdown.textContent = phonetic;
+    // Fetch syllables comma separated
+    const syllablesText = await getDatamuseSyllables(correctWord);
+    pronounceBreakdown.textContent = syllablesText;
 
     spellingInput.disabled = true;
     checkBtn.disabled = true;
