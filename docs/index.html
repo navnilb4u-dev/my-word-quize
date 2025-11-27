@@ -24,7 +24,11 @@
 <div class="flashcard">
   <div class="controls">
     <label for="pageSelect">Choose page: </label>
-    <select id="pageSelect"></select>
+    <select id="pageSelect">
+      <option value="0">Page 1</option>
+      <option value="1">Page 2</option>
+      <option value="2">Page 3</option>
+    </select>
   </div>
   <div id="counter"></div>
   <div class="word" id="wordDisplay"></div>
@@ -40,27 +44,6 @@
 <script src="https://cdn.jsdelivr.net/npm/hyphenopoly@2/Hyphenopoly_Loader.js"></script>
 
 <script>
-  // Configure Hyphenopoly for syllable breaking (not line hyphenation)
-  Hyphenopoly.config({
-    require: {
-      "en-us-x-syllables": "FORCEHYPHENOPOLY"
-    },
-    paths: {
-      patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
-      maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
-    },
-    setup: {
-      classnames: {
-        "syllables": {
-          hyphen: "·",
-          leftmin: 0,
-          rightmin: 0,
-          minWordLength: 2
-        }
-      }
-    }
-  });
-
   const pages = [
     ["example", "language", "programming", "javascript", "flashcard", "geranium"],
     ["apple", "banana", "cherry", "date", "elderberry"],
@@ -88,33 +71,52 @@
   let currentPage = 0;
   let words = [];
   let currentIndex = 0;
+  let hyphenopolyReady = false;
 
-  // Get syllable breakdown using Hyphenopoly
-  function getSyllableBreakdown(word) {
-    // Create a temporary span with syllables class
+  // Configure Hyphenopoly after DOM loads
+  document.addEventListener('DOMContentLoaded', function() {
+    Hyphenopoly.config({
+      require: {
+        "en-us": "FORCEHYPHENOPOLY"
+      },
+      paths: {
+        patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
+        maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
+      },
+      setup: {
+        classnames: {
+          "syllables": {
+            hyphen: "·",
+            leftmin: 0,
+            rightmin: 0
+          }
+        }
+      },
+      events: {
+        "hyphenopoly:ready": function() {
+          hyphenopolyReady = true;
+        }
+      }
+    });
+  });
+
+  function getSyllableBreakdown(word, callback) {
+    if (!hyphenopolyReady) {
+      callback(word); // Fallback
+      return;
+    }
+    
     const tempSpan = document.createElement('span');
     tempSpan.className = 'syllables';
     tempSpan.textContent = word;
     document.body.appendChild(tempSpan);
     
-    // Trigger hyphenation and extract result
+    // Wait for hyphenation
     setTimeout(() => {
       const syllabified = tempSpan.textContent;
       document.body.removeChild(tempSpan);
-      return syllabified;
-    }, 100);
-    
-    // Fallback if hyphenopoly not ready
-    return word;
-  }
-
-  function populatePages() {
-    for (let i = 0; i < pages.length; i++) {
-      const option = document.createElement('option');
-      option.value = i;
-      option.textContent = `Page ${i + 1}`;
-      pageSelect.appendChild(option);
-    }
+      callback(syllabified);
+    }, 200);
   }
 
   function updateCounter() {
@@ -167,14 +169,10 @@
       resultDisplay.className = "result incorrect";
     }
 
-    // Show syllable breakdown with dots
-    const syllabified = getSyllableBreakdown(correctWord);
-    pronounceBreakdown.innerHTML = `<span class="syllables">${correctWord}</span>`;
-    
-    // Trigger hyphenation on the syllables span
-    setTimeout(() => {
-      pronounceBreakdown.querySelector('.syllables').className = 'syllables';
-    }, 50);
+    // Show syllable breakdown
+    getSyllableBreakdown(correctWord, (syllabified) => {
+      pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
+    });
 
     spellingInput.disabled = true;
     checkBtn.disabled = true;
@@ -196,7 +194,7 @@
     showWord();
   }
 
-  populatePages();
+  // Initialize app
   pageSelect.selectedIndex = 0;
   startPage();
 </script>
