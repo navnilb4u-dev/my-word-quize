@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Flashcard Spelling Checker - Pages</title>
+<title>Flashcard Spelling Checker - Syllables</title>
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; }
   .flashcard { max-width: 400px; margin: auto; text-align: center; }
@@ -14,8 +14,9 @@
   .result { margin-top: 15px; font-weight: bold; font-size: 1.3em; }
   .correct { color: green; }
   .incorrect { color: red; }
-  #pronounceBreakdown { margin-top: 8px; font-size: 1.1em; font-style: italic; color: #666; }
+  #pronounceBreakdown { margin-top: 8px; font-size: 1.2em; font-weight: bold; color: #333; }
   .controls { margin-bottom: 20px; }
+  .syllables { color: #0066cc; font-size: 1.3em; }
 </style>
 </head>
 <body>
@@ -35,9 +36,33 @@
   <button id="nextBtn" style="display:none;">Next Word</button>
 </div>
 
+<!-- Hyphenopoly.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/hyphenopoly@2/Hyphenopoly_Loader.js"></script>
+
 <script>
+  // Configure Hyphenopoly for syllable breaking (not line hyphenation)
+  Hyphenopoly.config({
+    require: {
+      "en-us-x-syllables": "FORCEHYPHENOPOLY"
+    },
+    paths: {
+      patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
+      maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
+    },
+    setup: {
+      classnames: {
+        "syllables": {
+          hyphen: "·",
+          leftmin: 0,
+          rightmin: 0,
+          minWordLength: 2
+        }
+      }
+    }
+  });
+
   const pages = [
-    ["example", "language", "programming", "javascript", "flashcard"],
+    ["example", "language", "programming", "javascript", "flashcard", "geranium"],
     ["apple", "banana", "cherry", "date", "elderberry"],
     ["sun", "moon", "star", "planet", "galaxy"]
   ];
@@ -64,22 +89,23 @@
   let words = [];
   let currentIndex = 0;
 
-  // Datamuse API call to get syllables as comma separated list
-  async function getDatamuseSyllables(word) {
-    try {
-      const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=s`);
-      const data = await response.json();
-      if (data[0] && data[0].syllables && data[0].syllables.count) {
-        // data[0].syllables.list contains syllable arrays
-        if (data[0].syllables.list && data[0].syllables.list.length > 0) {
-          return 'Syllables: ' + data[0].syllables.list[0].join(', ');
-        }
-        return 'Number of syllables: ' + data[0].syllables.count;
-      }
-    } catch (e) {
-      // fail silently and fallback
-    }
-    return 'Syllables info unavailable';
+  // Get syllable breakdown using Hyphenopoly
+  function getSyllableBreakdown(word) {
+    // Create a temporary span with syllables class
+    const tempSpan = document.createElement('span');
+    tempSpan.className = 'syllables';
+    tempSpan.textContent = word;
+    document.body.appendChild(tempSpan);
+    
+    // Trigger hyphenation and extract result
+    setTimeout(() => {
+      const syllabified = tempSpan.textContent;
+      document.body.removeChild(tempSpan);
+      return syllabified;
+    }, 100);
+    
+    // Fallback if hyphenopoly not ready
+    return word;
   }
 
   function populatePages() {
@@ -122,8 +148,6 @@
       utterance.rate = 0.9;
       utterance.pitch = 1.0;
       synth.speak(utterance);
-    } else {
-      alert('Speech synthesis not supported in this browser.');
     }
   }
 
@@ -131,7 +155,7 @@
     pronounceWord(words[currentIndex]);
   });
 
-  checkBtn.addEventListener('click', async () => {
+  checkBtn.addEventListener('click', () => {
     const userSpelling = spellingInput.value.trim().toLowerCase();
     const correctWord = words[currentIndex];
 
@@ -143,9 +167,14 @@
       resultDisplay.className = "result incorrect";
     }
 
-    // Fetch syllables comma separated
-    const syllablesText = await getDatamuseSyllables(correctWord);
-    pronounceBreakdown.textContent = syllablesText;
+    // Show syllable breakdown with dots
+    const syllabified = getSyllableBreakdown(correctWord);
+    pronounceBreakdown.innerHTML = `<span class="syllables">${correctWord}</span>`;
+    
+    // Trigger hyphenation on the syllables span
+    setTimeout(() => {
+      pronounceBreakdown.querySelector('.syllables').className = 'syllables';
+    }, 50);
 
     spellingInput.disabled = true;
     checkBtn.disabled = true;
@@ -165,11 +194,6 @@
     words = shuffle([...pages[currentPage]]);
     currentIndex = 0;
     showWord();
-  }
-
-  // Load voices when available
-  if (speechSynthesis) {
-    speechSynthesis.onvoiceschanged = () => {};
   }
 
   populatePages();
