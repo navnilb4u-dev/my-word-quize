@@ -1,147 +1,214 @@
-<script>
-  const pages = [
-    ["example", "language", "programming", "javascript", "flashcard", "geranium"],
-    ["apple", "banana", "cherry", "date", "elderberry"],
-    ["sun", "moon", "star", "planet", "galaxy"]
-  ];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flashcard Spelling Checker - Syllables</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .flashcard { max-width: 400px; margin: auto; text-align: center; }
+    .word { font-size: 2.5em; margin: 20px 0; }
+    #counter { font-size: 1.2em; margin-bottom: 10px; }
+    input[type="text"] { font-size: 1.4em; padding: 5px; width: 100%; }
+    button { padding: 10px 20px; margin-top: 10px; font-size: 1em; }
+    .result { margin-top: 15px; font-weight: bold; font-size: 1.3em; }
+    .correct { color: green; }
+    .incorrect { color: red; }
+    #pronounceBreakdown { margin-top: 8px; font-size: 1.2em; font-weight: bold; color: #333; }
+    .controls { margin-bottom: 20px; }
+    .syllables { color: #0066cc; font-size: 1.3em; }
+  </style>
+</head>
+<body>
+  <div class="flashcard">
+    <div class="controls">
+      <label for="pageSelect">Choose page: </label>
+      <select id="pageSelect">
+        <option value="0">Page 1</option>
+        <option value="1">Page 2</option>
+        <option value="2">Page 3</option>
+      </select>
+    </div>
+    <div id="counter"></div>
+    <div class="word" id="wordDisplay"></div>
+    <button id="speakBtn">🔊 Listen</button>
+    <input type="text" id="spellingInput" placeholder="Type the spelling here" autocomplete="off" />
+    <button id="checkBtn">Check Spelling</button>
+    <div class="result" id="resultDisplay"></div>
+    <div id="pronounceBreakdown"></div>
+    <button id="nextBtn" style="display:none;">Next Word</button>
+  </div>
 
-  let synth;
-  let voices = [];
+  <script>
+    const pages = [
+      ["example", "language", "programming", "javascript", "flashcard", "geranium"],
+      ["apple", "banana", "cherry", "date", "elderberry"],
+      ["sun", "moon", "star", "planet", "galaxy"]
+    ];
 
-  function pronounceWord(word) {
-    if (!('speechSynthesis' in window)) {
-      alert('Speech synthesis not supported');
-      return;
+    let synth;
+    let voices = [];
+
+    function pronounceWord(word) {
+      if (!('speechSynthesis' in window)) {
+        alert('Speech synthesis not supported');
+        return;
+      }
+      if (voices.length === 0) {
+        window.speechSynthesis.onvoiceschanged = () => pronounceWord(word);
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(word);
+      const niceVoice = voices.find(v => v.lang.startsWith('en-US')) || voices[0];
+      utterance.voice = niceVoice;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      synth.speak(utterance);
     }
-    if (voices.length === 0) {
-      window.speechSynthesis.onvoiceschanged = () => pronounceWord(word);
-      return;
+
+    // Simple syllable breakdown algorithm (no external library needed)
+    function getSyllableBreakdown(word) {
+      const vowels = 'aeiouy';
+      const syllables = [];
+      let currentSyllable = '';
+      let prevWasVowel = false;
+
+      for (let i = 0; i < word.length; i++) {
+        const char = word[i].toLowerCase();
+        const isVowel = vowels.includes(char);
+
+        currentSyllable += word[i];
+
+        if (prevWasVowel && !isVowel && i < word.length - 1) {
+          // Check if next char is a vowel - if so, split before current consonant
+          const nextChar = word[i + 1].toLowerCase();
+          if (vowels.includes(nextChar)) {
+            // Move the consonant to the next syllable
+            syllables.push(currentSyllable.slice(0, -1));
+            currentSyllable = word[i];
+          }
+        }
+
+        prevWasVowel = isVowel;
+      }
+
+      if (currentSyllable) {
+        syllables.push(currentSyllable);
+      }
+
+      // Clean up: merge single-letter syllables and handle edge cases
+      const cleaned = [];
+      for (let i = 0; i < syllables.length; i++) {
+        if (syllables[i].length === 1 && cleaned.length > 0) {
+          cleaned[cleaned.length - 1] += syllables[i];
+        } else if (syllables[i].length > 0) {
+          cleaned.push(syllables[i]);
+        }
+      }
+
+      // Handle silent 'e' at end
+      if (cleaned.length > 1 && cleaned[cleaned.length - 1].toLowerCase() === 'e') {
+        cleaned[cleaned.length - 2] += cleaned.pop();
+      }
+
+      return cleaned.join('·') || word;
     }
-    const utterance = new SpeechSynthesisUtterance(word);
-    const niceVoice = voices.find(v => v.lang.startsWith('en-US')) || voices[0];
-    utterance.voice = niceVoice;
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    synth.speak(utterance);
-  }
 
-  // Simple syllable breakdown using Hyphenator's run() method
-  function getSyllableBreakdown(word) {
-    // Create a temporary element for Hyphenator to process
-    const tempDiv = document.createElement('div');
-    tempDiv.className = 'hyphenate';
-    tempDiv.lang = 'en';
-    tempDiv.textContent = word;
-    document.body.appendChild(tempDiv);
-    
-    // Run Hyphenator on the element
-    Hyphenator.run();
-    
-    // Get the hyphenated result and replace soft hyphens with visible dots
-    const result = tempDiv.textContent.replace(/\u00AD/g, '·');
-    document.body.removeChild(tempDiv);
-    return result;
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    // Configure Hyphenator
-    Hyphenator.config({
-      hyphenchar: '\u00AD',  // soft hyphen
-      minwordlength: 4
-    });
-
-    synth = window.speechSynthesis;
-    voices = synth.getVoices();
-    synth.onvoiceschanged = () => {
+    document.addEventListener('DOMContentLoaded', function() {
+      synth = window.speechSynthesis;
       voices = synth.getVoices();
-    };
+      synth.onvoiceschanged = () => {
+        voices = synth.getVoices();
+      };
 
-    const pageSelect = document.getElementById('pageSelect');
-    const counter = document.getElementById('counter');
-    const wordDisplay = document.getElementById('wordDisplay');
-    const speakBtn = document.getElementById('speakBtn');
-    const spellingInput = document.getElementById('spellingInput');
-    const checkBtn = document.getElementById('checkBtn');
-    const resultDisplay = document.getElementById('resultDisplay');
-    const pronounceBreakdown = document.getElementById('pronounceBreakdown');
-    const nextBtn = document.getElementById('nextBtn');
+      const pageSelect = document.getElementById('pageSelect');
+      const counter = document.getElementById('counter');
+      const wordDisplay = document.getElementById('wordDisplay');
+      const speakBtn = document.getElementById('speakBtn');
+      const spellingInput = document.getElementById('spellingInput');
+      const checkBtn = document.getElementById('checkBtn');
+      const resultDisplay = document.getElementById('resultDisplay');
+      const pronounceBreakdown = document.getElementById('pronounceBreakdown');
+      const nextBtn = document.getElementById('nextBtn');
 
-    let currentPage = 0;
-    let words = [];
-    let currentIndex = 0;
+      let currentPage = 0;
+      let words = [];
+      let currentIndex = 0;
 
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
-
-    function updateCounter() {
-      counter.textContent = `Word ${currentIndex + 1} of ${words.length}`;
-    }
-
-    pageSelect.addEventListener('change', () => {
-      currentPage = parseInt(pageSelect.value);
-      startPage();
-    });
-
-    function showWord() {
-      spellingInput.value = "";
-      resultDisplay.innerHTML = "";
-      resultDisplay.className = "result";
-      pronounceBreakdown.textContent = "";
-      nextBtn.style.display = "none";
-      spellingInput.disabled = false;
-      checkBtn.disabled = false;
-      wordDisplay.textContent = "Spell this word:";
-      updateCounter();
-    }
-
-    speakBtn.addEventListener('click', () => {
-      if (words[currentIndex]) {
-        pronounceWord(words[currentIndex]);
-      }
-    });
-
-    checkBtn.addEventListener('click', () => {
-      const userSpelling = spellingInput.value.trim().toLowerCase();
-      const correctWord = words[currentIndex];
-      
-      if (correctWord && userSpelling === correctWord.toLowerCase()) {
-        resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
-        resultDisplay.className = "result correct";
-      } else if (correctWord) {
-        resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
-        resultDisplay.className = "result incorrect";
+      function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
       }
 
-      // Get syllable breakdown
-      const syllabified = getSyllableBreakdown(correctWord);
-      pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
+      function updateCounter() {
+        counter.textContent = `Word ${currentIndex + 1} of ${words.length}`;
+      }
 
-      spellingInput.disabled = true;
-      checkBtn.disabled = true;
-      nextBtn.style.display = "inline-block";
-    });
-
-    nextBtn.addEventListener('click', () => {
-      currentIndex++;
-      if (currentIndex >= words.length) {
+      pageSelect.addEventListener('change', () => {
+        currentPage = parseInt(pageSelect.value);
         startPage();
-      } else {
+      });
+
+      function showWord() {
+        spellingInput.value = "";
+        resultDisplay.innerHTML = "";
+        resultDisplay.className = "result";
+        pronounceBreakdown.textContent = "";
+        nextBtn.style.display = "none";
+        spellingInput.disabled = false;
+        checkBtn.disabled = false;
+        wordDisplay.textContent = "Spell this word:";
+        updateCounter();
+      }
+
+      speakBtn.addEventListener('click', () => {
+        if (words[currentIndex]) {
+          pronounceWord(words[currentIndex]);
+        }
+      });
+
+      checkBtn.addEventListener('click', () => {
+        const userSpelling = spellingInput.value.trim().toLowerCase();
+        const correctWord = words[currentIndex];
+
+        if (correctWord && userSpelling === correctWord.toLowerCase()) {
+          resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
+          resultDisplay.className = "result correct";
+        } else if (correctWord) {
+          resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
+          resultDisplay.className = "result incorrect";
+        }
+
+        // Get syllable breakdown
+        const syllabified = getSyllableBreakdown(correctWord);
+        pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
+
+        spellingInput.disabled = true;
+        checkBtn.disabled = true;
+        nextBtn.style.display = "inline-block";
+      });
+
+      nextBtn.addEventListener('click', () => {
+        currentIndex++;
+        if (currentIndex >= words.length) {
+          startPage();
+        } else {
+          showWord();
+        }
+      });
+
+      function startPage() {
+        words = shuffle([...pages[currentPage]]);
+        currentIndex = 0;
         showWord();
       }
+
+      // Start the quiz
+      startPage();
     });
-
-    function startPage() {
-      words = shuffle([...pages[currentPage]]);
-      currentIndex = 0;
-      showWord();
-    }
-
-    // Start the quiz
-    startPage();
-  });
-</script>
+  </script>
+</body>
+</html>
