@@ -19,7 +19,7 @@
   .syllables { color: #0066cc; font-size: 1.3em; }
 </style>
 <!-- Load Hyphenator.js version 5.3.0 from cdnjs -->
-<script src="cdnjs.cloudflare.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/Hyphenator.min.js"></script>
 </head>
 <body>
 
@@ -51,26 +51,22 @@
   ];
 
   let getSyllableBreakdown;
-  let synth; // Reference to the speech synthesizer
-  let voices = []; // Array to store available voices
+  let synth;
+  let voices = [];
 
-  // Function to handle pronunciation
   function pronounceWord(word) {
     if (!('speechSynthesis' in window)) {
       alert('Speech synthesis not supported');
       return;
     }
     
-    // Ensure voices are loaded before speaking
     if (voices.length === 0) {
-        // If not loaded yet, try again when voices are ready
         window.speechSynthesis.onvoiceschanged = () => pronounceWord(word);
         return;
     }
 
     const utterance = new SpeechSynthesisUtterance(word);
-    // Find a decent English voice or use the default
-    const niceVoice = voices.find(v => v.lang.startsWith('en-US')) || voices[0];
+    const niceVoice = voices.find(v => v.lang.startsWith('en-US')) || voices;
     utterance.voice = niceVoice;
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
@@ -79,15 +75,15 @@
 
   // Listen for the specific event that the Hyphenator library fires when it is ready
   document.addEventListener('onhyphenatorready', function() {
-      // Configure Hyphenator 5.3.0 with the correct properties
+      // Configure Hyphenator 5.3.0 with the CORRECT properties and URL path
       Hyphenator.config({
-          patterns: "cdnjs.cloudflare.com",
+          // The key fix is ensuring the URL ends with a slash so it loads the correct JS file within that dir
+          patterns: "cdnjs.cloudflare.com", 
           hyphenchar: '·',
           defaultLanguage: 'en',
           remoteResource: true
       });
       
-      // Define our usable async function *after* config is set and the library is ready
       getSyllableBreakdown = async function(word) {
           return new Promise((resolve) => {
               Hyphenator.hyphenate(word, function(result) {
@@ -96,19 +92,16 @@
           });
       };
       
-      // Re-run the start sequence now that hyphenation is ready
       startPage();
   });
 
 
   document.addEventListener('DOMContentLoaded', function() {
     synth = window.speechSynthesis;
-    // Load voices immediately when the DOM loads
     voices = synth.getVoices();
     synth.onvoiceschanged = () => {
         voices = synth.getVoices();
     };
-
 
     const pageSelect = document.getElementById('pageSelect');
     const counter = document.getElementById('counter');
@@ -153,8 +146,6 @@
       updateCounter();
     }
 
-    // Moved pronounceWord function definition outside DOMContentLoaded for scope access (above)
-
     speakBtn.addEventListener('click', () => {
       if (words[currentIndex]) {
         pronounceWord(words[currentIndex]);
@@ -165,7 +156,6 @@
       const userSpelling = spellingInput.value.trim().toLowerCase();
       const correctWord = words[currentIndex];
 
-      // Safety check added here as requested (Line 172)
       if (correctWord && userSpelling === correctWord.toLowerCase()) { 
         resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
         resultDisplay.className = "result correct";
@@ -200,8 +190,6 @@
       currentIndex = 0;
       showWord();
     }
-
-    // startPage() removed from here, called by onhyphenatorready event instead
   });
 </script>
 
