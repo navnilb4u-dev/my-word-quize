@@ -36,18 +36,245 @@
     <button id="checkBtn">Check Spelling</button>
     <div class="result" id="resultDisplay"></div>
     <div id="pronounceBreakdown"></div>
+    <div id="hypherStatus" aria-live="polite" style="margin-top:6px; font-size:0.95em; color:#666">Loading hyphenation patterns...</div>
     <button id="nextBtn" style="display:none;">Next Word</button>
   </div>
 
   <script>
     const pages = [
-      ["example", "language", "programming", "javascript", "flashcard", "geranium"],
+      ["almanac","hippies","samosas","campaign","pistachio","mosque","zombielike","warlock","colossus","convulsively","dimensional","garishly","graffitist","Everest","dexterity","cavorting","marauder","conscience","battlements","deferential","albatross","khaki","opalescent","asphalt","Yiddish","talcum","tranquilizer","equestrian","plaited","monsieur","manticores","prestigious","fraidycat","guttural","lo","mein","courier","sans","serif","psyche","stucco","Frankenstein","schema","et","cetera","vidimus","delphine","slough","archipelago","serape","sarape","puissance","pinioning","chignon","pheromone","galleon","magnanimous","chartreuse","wainscoting","Nehru"],
       ["apple", "banana", "cherry", "date", "elderberry"],
       ["sun", "moon", "star", "planet", "galaxy"]
     ];
 
+    // Small manual hyphenation dictionary for immediate reliability (override/fallback).
+    // Add any words here that need guaranteed splits (e.g., 'geranium').
+    const manualHyphenation = {
+      'geranium': ['ge','ra','ni','um'],
+      'almanac': ['al','ma','nac'],
+      'hippies': ['hip','pies'],
+      'samosas': ['sa','mo','sas'],
+      'campaign': ['cam','paign'],
+      'pistachio': ['pis','ta','chio'],
+      'mosque': ['mosque'],
+      'zombielike': ['zom','bie','like'],
+      'warlock': ['war','lock'],
+      'colossus': ['co','los','sus'],
+      'convulsively': ['con','vul','sive','ly'],
+      'dimensional': ['di','men','sion','al'],
+      'garishly': ['gar','ish','ly'],
+      'graffitist': ['graf','fi','tist'],
+      'everest': ['ev','er','est'],
+      'dexterity': ['dex','ter','i','ty'],
+      'cavorting': ['ca','vor','ting'],
+      'marauder': ['ma','raud','er'],
+      'conscience': ['con','science'],
+      'battlements': ['bat','tle','ments'],
+      'deferential': ['de','fer','en','tial'],
+      'albatross': ['al','ba','tross'],
+      'khaki': ['kha','ki'],
+      'opalescent': ['o','pa','les','cent'],
+      'asphalt': ['as','phalt'],
+      'yiddish': ['yid','dish'],
+      'talcum': ['tal','cum'],
+      'tranquilizer': ['tran','quil','iz','er'],
+      'equestrian': ['e','ques','trian'],
+      'plaited': ['plait','ed'],
+      'monsieur': ['mon','sieur'],
+      'manticores': ['man','ti','cores'],
+      'prestigious': ['pres','ti','gious'],
+      'fraidycat': ['frai','dy','cat'],
+      'guttural': ['gut','tur','al'],
+      'lo': ['lo'],
+      'mein': ['mein'],
+      'courier': ['cour','ier'],
+      'sans': ['sans'],
+      'serif': ['se','rif'],
+      'psyche': ['psy','che'],
+      'stucco': ['stuc','co'],
+      'frankenstein': ['frank','en','stein'],
+      'schema': ['sche','ma'],
+      'et': ['et'],
+      'cetera': ['ce','te','ra'],
+      'vidimus': ['vi','di','mus'],
+      'delphine': ['del','phine'],
+      'slough': ['slough'],
+      'archipelago': ['ar','chi','pel','a','go'],
+      'serape': ['se','rape'],
+      'sarape': ['sa','rape'],
+      'puissance': ['puis','sance'],
+      'pinioning': ['pin','ion','ing'],
+      'chignon': ['chi','gnon'],
+      'pheromone': ['phe','ro','mone'],
+      'galleon': ['gal','le','on'],
+      'magnanimous': ['mag','nan','i','mous'],
+      'chartreuse': ['char','treuse'],
+      'wainscoting': ['wains','cot','ing'],
+      'nehru': ['neh','ru']
+    };
+
     let synth;
     let voices = [];
+
+    // Dynamically load Hypher (UMD) and English hyphenation patterns from CDN.
+    // If successful, `window._hypher` will be available and used by getSyllableBreakdown.
+    function loadHypherFromCDN() {
+      // Load Hypher (UMD build)
+      function loadScript(src, cb) {
+        const s = document.createElement('script');
+        s.src = src;
+        s.crossOrigin = 'anonymous';
+        s.onload = () => cb(null);
+        s.onerror = (e) => cb(e || new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+      }
+
+      // Try multiple CDN sources for Hypher and for the English patterns to be resilient to 404s.
+      // Include the requested cdnjs Hyphenator build first, then fall back to hypher builds.
+      const hypherCDNs = [
+        'https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/Hyphenator.min.js',
+        'https://cdn.jsdelivr.net/npm/hypher@0.2.5/dist/hypher.js',
+        'https://cdn.jsdelivr.net/npm/hypher/dist/hypher.js',
+        'https://unpkg.com/hypher@0.2.5/dist/hypher.js',
+        'https://unpkg.com/hypher/dist/hypher.js'
+      ];
+
+      // Try cdnjs patterns for Hyphenator first, then other sources for hyphenation.en-us patterns.
+      const patternCDNs = [
+        'https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/patterns/en-us.min.js',
+        'https://cdn.jsdelivr.net/npm/hyphenation.en-us@1.2.0/index.js',
+        'https://cdn.jsdelivr.net/npm/hyphenation.en-us/index.js',
+        'https://unpkg.com/hyphenation.en-us@1.2.0/index.js',
+        'https://unpkg.com/hyphenation.en-us/index.js'
+      ];
+
+      function loadSequential(list, cb) {
+        let i = 0;
+        function next() {
+          if (i >= list.length) return cb(new Error('no sources succeeded'));
+          loadScript(list[i], (err) => {
+            if (!err) return cb(null, list[i]);
+            i++;
+            next();
+          });
+        }
+        next();
+      }
+
+      // Load Hypher first, then patterns
+      loadSequential(hypherCDNs, (err, usedHypher) => {
+        if (err) return console.warn('Hypher failed to load from CDNs:', err);
+        console.log('Hypher loaded from', usedHypher);
+
+        loadSequential(patternCDNs, (err2, usedPattern) => {
+          if (err2) {
+            console.warn('English hyphenation patterns failed to load from CDNs:', err2);
+            // Patterns not found via UMD builds; try ESM fallback in tryInstantiateHypher
+            tryInstantiateHypher();
+            return;
+          }
+          console.log('Hyphenation patterns loaded from', usedPattern);
+          tryInstantiateHypher();
+        });
+      });
+
+      function tryInstantiateHypher() {
+        // Try several possible global names that pattern UMD builds might use.
+        const candidates = [
+          window.hyphenationEnUs,
+          window.hyphenation?.enUs,
+          window.enUs,
+          window['hyphenation.en-us'],
+          window['patterns']
+        ];
+
+        let patterns = null;
+        for (const c of candidates) {
+          if (c && typeof c === 'object') {
+            patterns = c;
+            break;
+          }
+        }
+
+        // Some builds put the patterns directly on a global named like `hyphenationEnUs` or `enUS` —
+        // others attach an object with a `patterns` property. Try a few shapes.
+        if (!patterns) {
+          const tryNames = ['hyphenationEnUs', 'enUs', 'enUS', 'patterns', 'hyphenation'];
+          for (const n of tryNames) {
+            const val = window[n];
+            if (val && typeof val === 'object') {
+              patterns = val;
+              break;
+            }
+          }
+        }
+
+        if (!patterns) {
+          // If patterns aren't available via UMD builds, do NOT inject an ESM module fallback
+          // (that was causing browsers to request failing unpkg ?module URLs). Instead, mark
+          // that Hypher isn't available and rely on the manual dictionary + local algorithm.
+          console.warn('Hyphenation patterns not found on window after script load. ESM fallback disabled.');
+          window._hypherFailed = true;
+          return;
+        }
+
+        try {
+          // If the Hyphenator library (from cdnjs) is present, create an adapter that
+          // exposes a `hyphenate(word)` method similar to Hypher's API by using
+          // a temporary DOM element and letting Hyphenator insert soft-hyphens.
+          if (window.Hyphenator) {
+            window._hypher = {
+              hyphenate(word) {
+                try {
+                  const span = document.createElement('span');
+                  span.textContent = word;
+                  span.style.position = 'absolute';
+                  span.style.left = '-9999px';
+                  // Hyphenator typically only processes elements in the document
+                  document.body.appendChild(span);
+
+                  // If Hyphenator provides a specific API, use it, otherwise run the global
+                  if (typeof window.Hyphenator.hyphenateElement === 'function') {
+                    window.Hyphenator.hyphenateElement(span);
+                  } else if (typeof window.Hyphenator.hyphenate === 'function') {
+                    window.Hyphenator.hyphenate(span);
+                  } else {
+                    // Add class and run full processing as a fallback
+                    span.className = 'Hyphenator';
+                    if (typeof window.Hyphenator.addElement === 'function') {
+                      window.Hyphenator.addElement(span);
+                    }
+                    if (typeof window.Hyphenator.run === 'function') {
+                      window.Hyphenator.run();
+                    }
+                  }
+
+                  // Hyphenator inserts soft hyphens (U+00AD) into innerHTML
+                  const html = span.innerHTML || '';
+                  document.body.removeChild(span);
+                  const parts = html.split('\u00AD').filter(Boolean);
+                  return parts.length ? parts : [word];
+                } catch (e) {
+                  return [word];
+                }
+              }
+            };
+            console.log('Hyphenator adapter created for Hyphenator global.');
+            return;
+          }
+
+          // Create Hypher instance (Hypher constructor exposed by the Hypher UMD build)
+          if (typeof window.Hypher === 'function') {
+            window._hypher = new window.Hypher(patterns);
+            console.log('Hypher loaded and ready.');
+          } else {
+            console.warn('Hypher UMD not found on window.');
+          }
+        } catch (e) {
+          console.warn('Failed to instantiate Hypher or adapter:', e);
+        }
+      }
+    }
 
     function pronounceWord(word) {
       if (!('speechSynthesis' in window)) {
@@ -66,8 +293,28 @@
       synth.speak(utterance);
     }
 
-    // Simple syllable breakdown algorithm (no external library needed)
+    // Syllable breakdown: prefer Hypher when loaded (via `loadHypherFromCDN`), otherwise use local fallback.
     function getSyllableBreakdown(word) {
+      if (!word) return word;
+
+      const lower = word.toLowerCase();
+      // Manual dictionary override
+      if (manualHyphenation[lower]) {
+        return manualHyphenation[lower].join('·');
+      }
+
+      // Prefer Hypher hyphenation if available (returns array of parts)
+      if (window._hypher && typeof window._hypher.hyphenate === 'function') {
+        try {
+          const parts = window._hypher.hyphenate(word);
+          if (parts && parts.length > 0) return parts.join('·');
+        } catch (e) {
+          // Fall through to fallback algorithm
+          console.warn('Hypher hyphenation failed, falling back:', e);
+        }
+      }
+
+      // Fallback simple syllable algorithm (keeps existing behavior)
       const vowels = 'aeiouy';
       const syllables = [];
       let currentSyllable = '';
@@ -80,10 +327,8 @@
         currentSyllable += word[i];
 
         if (prevWasVowel && !isVowel && i < word.length - 1) {
-          // Check if next char is a vowel - if so, split before current consonant
           const nextChar = word[i + 1].toLowerCase();
           if (vowels.includes(nextChar)) {
-            // Move the consonant to the next syllable
             syllables.push(currentSyllable.slice(0, -1));
             currentSyllable = word[i];
           }
@@ -96,7 +341,6 @@
         syllables.push(currentSyllable);
       }
 
-      // Clean up: merge single-letter syllables and handle edge cases
       const cleaned = [];
       for (let i = 0; i < syllables.length; i++) {
         if (syllables[i].length === 1 && cleaned.length > 0) {
@@ -106,7 +350,6 @@
         }
       }
 
-      // Handle silent 'e' at end
       if (cleaned.length > 1 && cleaned[cleaned.length - 1].toLowerCase() === 'e') {
         cleaned[cleaned.length - 2] += cleaned.pop();
       }
@@ -115,6 +358,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+      // Start loading Hypher patterns in the background and update UI when ready.
+      loadHypherFromCDN();
+
       synth = window.speechSynthesis;
       voices = synth.getVoices();
       synth.onvoiceschanged = () => {
@@ -129,6 +375,7 @@
       const checkBtn = document.getElementById('checkBtn');
       const resultDisplay = document.getElementById('resultDisplay');
       const pronounceBreakdown = document.getElementById('pronounceBreakdown');
+      const hypherStatus = document.getElementById('hypherStatus');
       const nextBtn = document.getElementById('nextBtn');
 
       let currentPage = 0;
@@ -162,6 +409,21 @@
         checkBtn.disabled = false;
         wordDisplay.textContent = "Spell this word:";
         updateCounter();
+        // Update hyphenation status for the currently shown word.
+        try {
+          const cw = words[currentIndex] || '';
+          if (window._hypher && typeof window._hypher.hyphenate === 'function') {
+            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (using Hypher)';
+          } else if (cw && manualHyphenation[cw.toLowerCase()]) {
+            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (manual dictionary)';
+          } else if (window._hypherFailed) {
+            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: using fallback algorithm';
+          } else {
+            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: loading...';
+          }
+        } catch (e) {
+          // ignore errors updating status
+        }
       }
 
       speakBtn.addEventListener('click', () => {
@@ -205,6 +467,34 @@
         currentIndex = 0;
         showWord();
       }
+
+      // Periodically check whether Hypher became available and update the status indicator.
+      (function pollHypherStatus() {
+        if (window._hypher && typeof window._hypher.hyphenate === 'function') {
+          if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (using Hypher)';
+          return;
+        }
+
+        if (window._hypherFailed) {
+          if (hypherStatus) hypherStatus.textContent = 'Hyphenation: unavailable — using fallback algorithm';
+          return;
+        }
+
+        // Re-check a couple times while CDN scripts may still be loading.
+        let checks = 0;
+        const interval = setInterval(() => {
+          checks++;
+          if (window._hypher && typeof window._hypher.hyphenate === 'function') {
+            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (using Hypher)';
+            clearInterval(interval);
+            return;
+          }
+          if (window._hypherFailed || checks > 6) {
+            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: using fallback algorithm';
+            clearInterval(interval);
+          }
+        }, 500);
+      })();
 
       // Start the quiz
       startPage();
