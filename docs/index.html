@@ -73,36 +73,37 @@
   let currentIndex = 0;
   let hyphenopolyReady = false;
 
-  // Configure Hyphenopoly after DOM loads
-  document.addEventListener('DOMContentLoaded', function() {
-    Hyphenopoly.config({
-      require: {
-        "en-us": "FORCEHYPHENOPOLY"
-      },
-      paths: {
-        patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
-        maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
-      },
-      setup: {
-        classnames: {
-          "syllables": {
-            hyphen: "·",
-            leftmin: 0,
-            rightmin: 0
-          }
-        }
-      },
-      events: {
-        "hyphenopoly:ready": function() {
-          hyphenopolyReady = true;
+  // Configure Hyphenopoly with proper onReady detection
+  Hyphenopoly.config({
+    require: {
+      "en-us": "FORCEHYPHENOPOLY"
+    },
+    paths: {
+      patterndir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/patterns/",
+      maindir: "https://cdn.jsdelivr.net/npm/hyphenopoly@2/"
+    },
+    setup: {
+      classnames: {
+        "syllables": {
+          hyphen: "·",
+          leftmin: 0,
+          rightmin: 0
         }
       }
-    });
+    }
+  });
+
+  // Wait for Hyphenopoly to be ready
+  Hyphenopoly.ready().then(() => {
+    hyphenopolyReady = true;
+    console.log("Hyphenopoly ready!");
+  }).catch(() => {
+    console.log("Hyphenopoly not available, using fallback");
   });
 
   function getSyllableBreakdown(word, callback) {
-    if (!hyphenopolyReady) {
-      callback('# '+word); // Fallback
+    if (!hyphenopolyReady || !window.Hyphenopoly) {
+      callback(word); // Fallback to original word
       return;
     }
     
@@ -111,12 +112,21 @@
     tempSpan.textContent = word;
     document.body.appendChild(tempSpan);
     
-    // Wait for hyphenation
+    // Wait for hyphenation to process
     setTimeout(() => {
       const syllabified = tempSpan.textContent;
       document.body.removeChild(tempSpan);
       callback(syllabified);
-    }, 200);
+    }, 300);
+  }
+
+  function populatePages() {
+    for (let i = 0; i < pages.length; i++) {
+      const option = document.createElement('option');
+      option.value = i;
+      option.textContent = `Page ${i + 1}`;
+      pageSelect.appendChild(option);
+    }
   }
 
   function updateCounter() {
@@ -169,7 +179,7 @@
       resultDisplay.className = "result incorrect";
     }
 
-    // Show syllable breakdown
+    // Show syllable breakdown with dots (ge·ra·ni·um)
     getSyllableBreakdown(correctWord, (syllabified) => {
       pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
     });
