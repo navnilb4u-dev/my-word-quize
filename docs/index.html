@@ -64,10 +64,19 @@
   let words = [];
   let currentIndex = 0;
 
-  // Simple pronunciation breakdown (vowel-group based)
-  function getPronunciationBreakdown(word) {
-    const parts = word.match(/[bcdfghjklmnpqrstvwxyz]*[aeiouy]+[bcdfghjklmnpqrstvwxyz]*/gi) || [word];
-    return parts.join(" - ");
+  // Datamuse API call to get syllables count and breakdown
+  async function getDatamusePronunciation(word) {
+    try {
+      const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=s`);
+      const data = await response.json();
+      if (data[0] && data[0].numSyllables) {
+        // Just show syllable count, or try to display itself as chunked word:
+        return `Syllables: ${data[0].numSyllables}`;
+      }
+    } catch (e) {
+      // fail silently and fallback
+    }
+    return "Pronunciation info unavailable";
   }
 
   function populatePages() {
@@ -107,7 +116,7 @@
       const utterance = new SpeechSynthesisUtterance(word);
       const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
       utterance.voice = niceVoice;
-      utterance.rate = 0.5;
+      utterance.rate = 0.9;
       utterance.pitch = 1.0;
       synth.speak(utterance);
     } else {
@@ -119,7 +128,7 @@
     pronounceWord(words[currentIndex]);
   });
 
-  checkBtn.addEventListener('click', () => {
+  checkBtn.addEventListener('click', async () => {
     const userSpelling = spellingInput.value.trim().toLowerCase();
     const correctWord = words[currentIndex];
 
@@ -131,9 +140,9 @@
       resultDisplay.className = "result incorrect";
     }
 
-    // Show pronunciation breakdown
-    pronounceBreakdown.textContent = 
-      `Pronunciation: ${getPronunciationBreakdown(correctWord)}`;
+    // Fetch pronunciation info from Datamuse API
+    const phonetic = await getDatamusePronunciation(correctWord);
+    pronounceBreakdown.textContent = phonetic;
 
     spellingInput.disabled = true;
     checkBtn.disabled = true;
