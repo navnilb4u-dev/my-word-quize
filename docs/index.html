@@ -288,7 +288,7 @@
       const utterance = new SpeechSynthesisUtterance(word);
       const niceVoice = voices.find(v => v.lang.startsWith('en-US')) || voices[0];
       utterance.voice = niceVoice;
-      utterance.rate = 0.9;
+      utterance.rate = 0.6;
       utterance.pitch = 1.0;
       synth.speak(utterance);
     }
