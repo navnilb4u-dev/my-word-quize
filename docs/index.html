@@ -19,7 +19,7 @@
   .syllables { color: #0066cc; font-size: 1.3em; }
 </style>
 <!-- Load Hyphenator.js version 5.3.0 from cdnjs -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/Hyphenator.min.js"></script>
+<script src="cdnjs.cloudflare.com"></script>
 </head>
 <body>
 
@@ -51,28 +51,45 @@
   ];
 
   let getSyllableBreakdown;
+  let synth; // Reference to the speech synthesizer
+  let voices = []; // Array to store available voices
+
+  // Function to handle pronunciation
+  function pronounceWord(word) {
+    if (!('speechSynthesis' in window)) {
+      alert('Speech synthesis not supported');
+      return;
+    }
+    
+    // Ensure voices are loaded before speaking
+    if (voices.length === 0) {
+        // If not loaded yet, try again when voices are ready
+        window.speechSynthesis.onvoiceschanged = () => pronounceWord(word);
+        return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(word);
+    // Find a decent English voice or use the default
+    const niceVoice = voices.find(v => v.lang.startsWith('en-US')) || voices[0];
+    utterance.voice = niceVoice;
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    synth.speak(utterance);
+  }
 
   // Listen for the specific event that the Hyphenator library fires when it is ready
   document.addEventListener('onhyphenatorready', function() {
       // Configure Hyphenator 5.3.0 with the correct properties
       Hyphenator.config({
-          // Set the base path to where the pattern files are hosted on cdnjs
           patterns: "cdnjs.cloudflare.com",
-          
-          // Use 'hyphenchar' to set the separator character
           hyphenchar: '·',
-
-          // Set the default language explicitly
           defaultLanguage: 'en',
-          
-          // You must explicitly tell the library to load patterns remotely
           remoteResource: true
       });
       
       // Define our usable async function *after* config is set and the library is ready
       getSyllableBreakdown = async function(word) {
           return new Promise((resolve) => {
-              // The callback receives the hyphenated string directly
               Hyphenator.hyphenate(word, function(result) {
                   resolve(result);
               });
@@ -85,7 +102,13 @@
 
 
   document.addEventListener('DOMContentLoaded', function() {
-    // Note: The rest of your existing JS logic starts here.
+    synth = window.speechSynthesis;
+    // Load voices immediately when the DOM loads
+    voices = synth.getVoices();
+    synth.onvoiceschanged = () => {
+        voices = synth.getVoices();
+    };
+
 
     const pageSelect = document.getElementById('pageSelect');
     const counter = document.getElementById('counter');
@@ -130,24 +153,7 @@
       updateCounter();
     }
 
-    function pronounceWord(word) {
-      if ('speechSynthesis' in window) {
-        const synth = window.speechSynthesis;
-        if (synth.getVoices().length === 0) {
-          synth.onvoiceschanged = () => pronounceWord(word);
-          return;
-        }
-        const voices = synth.getVoices();
-        const utterance = new SpeechSynthesisUtterance(word);
-        const niceVoice = voices.find(v => v.lang.startsWith('en')) || voices;
-        utterance.voice = niceVoice;
-        utterance.rate = 0.9;
-        utterance.pitch = 1.0;
-        synth.speak(utterance);
-      } else {
-        alert('Speech synthesis not supported');
-      }
-    }
+    // Moved pronounceWord function definition outside DOMContentLoaded for scope access (above)
 
     speakBtn.addEventListener('click', () => {
       if (words[currentIndex]) {
@@ -159,10 +165,11 @@
       const userSpelling = spellingInput.value.trim().toLowerCase();
       const correctWord = words[currentIndex];
 
-      if (userSpelling === correctWord.toLowerCase()) {
+      // Safety check added here as requested (Line 172)
+      if (correctWord && userSpelling === correctWord.toLowerCase()) { 
         resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
         resultDisplay.className = "result correct";
-      } else {
+      } else if (correctWord) {
         resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
         resultDisplay.className = "result incorrect";
       }
@@ -193,6 +200,8 @@
       currentIndex = 0;
       showWord();
     }
+
+    // startPage() removed from here, called by onhyphenatorready event instead
   });
 </script>
 
