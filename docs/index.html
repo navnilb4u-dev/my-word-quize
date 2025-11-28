@@ -518,8 +518,9 @@
             infoEl.innerHTML = `
               <div><strong>${word}</strong> ${phon ? ' — ' + phon : ''}</div>
               <div style="margin-top:6px">${def}</div>
-              <div style="margin-top:8px" class="syllables">${breakdown}</div>
+              
             `;
+            //<div style="margin-top:8px" class="syllables">${breakdown}</div>
 
             // If audio URL is available, try to play it (may fail due to CORS).
             if (details.audioUrl) {
@@ -534,8 +535,9 @@
             // No dictionary entry found — show the word and a syllable breakdown and TTS button.
             infoEl.innerHTML = `
               <div><strong>${word}</strong></div>
-              <div style="margin-top:6px" class="syllables">${breakdown}</div>
+              
             `;
+            //<div style="margin-top:6px" class="syllables">${breakdown}</div>
           }
         } catch (e) {
           console.warn('Error fetching dictionary entry', e);
@@ -543,8 +545,9 @@
           const breakdown = getSyllableBreakdown(word);
           infoEl.innerHTML = `
             <div><strong>${word}</strong></div>
-            <div style="margin-top:6px" class="syllables">${breakdown}</div>
+            
           `;
+          //<div style="margin-top:6px" class="syllables">${breakdown}</div>
         }
 
         // If dictionary audio did not play (no URL, CORS or playback error), use TTS fallback.
@@ -584,6 +587,7 @@
         } else if (correctWord) {
           resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
           resultDisplay.className = "result incorrect";
+          
         }
 
         // Get syllable breakdown
