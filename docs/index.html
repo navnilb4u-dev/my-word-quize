@@ -516,10 +516,11 @@
             // Show definition AND syllable breakdown. If audio exists, attempt to play it,
             // but always provide a fallback TTS button the user can press.
             infoEl.innerHTML = `
-              <div><strong>${word}</strong> ${phon ? ' — ' + phon : ''}</div>
+              
               <div style="margin-top:6px">${def}</div>
               
             `;
+            //<div><strong>${word}</strong> ${phon ? ' — ' + phon : ''}</div>
             //<div style="margin-top:8px" class="syllables">${breakdown}</div>
 
             // If audio URL is available, try to play it (may fail due to CORS).
@@ -534,9 +535,10 @@
           } else {
             // No dictionary entry found — show the word and a syllable breakdown and TTS button.
             infoEl.innerHTML = `
-              <div><strong>${word}</strong></div>
+             
               
             `;
+            // <div><strong>${word}</strong></div>
             //<div style="margin-top:6px" class="syllables">${breakdown}</div>
           }
         } catch (e) {
@@ -544,9 +546,10 @@
           // On error, fallback to showing the word and syllable breakdown plus TTS button.
           const breakdown = getSyllableBreakdown(word);
           infoEl.innerHTML = `
-            <div><strong>${word}</strong></div>
+            
             
           `;
+          //<div><strong>${word}</strong></div>
           //<div style="margin-top:6px" class="syllables">${breakdown}</div>
         }
 
