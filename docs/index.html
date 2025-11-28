@@ -553,6 +553,8 @@
           //<div style="margin-top:6px" class="syllables">${breakdown}</div>
         }
 
+        alert(playedDictAudio ? 'Played dictionary pronunciation audio.' : 'Using text-to-speech pronunciation.');
+
         // If dictionary audio did not play (no URL, CORS or playback error), use TTS fallback.
         if (!playedDictAudio) {
           pronounceWord(word);
