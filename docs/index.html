@@ -330,6 +330,7 @@
       try {
         voices = synth.getVoices() || voices;
       } catch (e) {
+        alert('speechSynthesis.getVoices() threw:', e);
         // getVoices can throw in some environments; ignore and proceed.
       }
 
@@ -341,6 +342,7 @@
           synth.cancel();
           voices = synth.getVoices() || voices;
         } catch (e) {
+          alert('speechSynthesis warm-up failed:', e);
           // ignore warming errors
         }
       }
@@ -349,7 +351,7 @@
       // Pick any English-like voice, tolerate variations like 'en', 'en-US', 'en_US'
       const niceVoice = (voices || []).find(v => (v.lang || '').toLowerCase().startsWith('en')) || (voices && voices[0]);
       if (niceVoice) utterance.voice = niceVoice;
-      utterance.rate = 0.9;
+      utterance.rate = 0.6;
       utterance.pitch = 1.0;
 
       try {
@@ -357,6 +359,7 @@
         synth.cancel();
         synth.speak(utterance);
       } catch (err) {
+        alert('speechSynthesis.speak failed:', err);
         console.warn('speechSynthesis.speak failed:', err);
       }
     }
