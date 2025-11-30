@@ -127,7 +127,7 @@
           const audioUrl = (wordData.phonetics || []).find(p => p.audio)?.audio || '';
           const phonetic = wordData.phonetic || (wordData.phonetics || [])[0]?.text || '';
           return { definition, audioUrl, phonetic };
-        }
+        } 
       } catch (error) {
         console.error('Error fetching word:', error);
       }
@@ -337,7 +337,7 @@
       // If voices aren't loaded yet (common on iOS), try to warm them synchronously.
       if (!voices || voices.length === 0) {
         try {
-          const warm = new SpeechSynthesisUtterance('');
+          const warm = new SpeechSynthesisUtterance('a');
           synth.speak(warm);
           synth.cancel();
           voices = synth.getVoices() || voices;
@@ -346,12 +346,14 @@
           // ignore warming errors
         }
       }
+      alert('playing: '+word)
 
       const utterance = new SpeechSynthesisUtterance(word);
       // Pick any English-like voice, tolerate variations like 'en', 'en-US', 'en_US'
       const niceVoice = (voices || []).find(v => (v.lang || '').toLowerCase().startsWith('en')) || (voices && voices[0]);
+      if (!niceVoice) alert('No Nice Voice => ' + JSON.stringify(voices))
       if (niceVoice) utterance.voice = niceVoice;
-      utterance.rate = 0.6;
+      utterance.rate = 0.8;
       utterance.pitch = 1.0;
 
       try {
