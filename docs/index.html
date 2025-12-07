@@ -1,660 +1,144 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Flashcard Spelling Checker - Syllables</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .flashcard { max-width: 400px; margin: auto; text-align: center; }
-    .word { font-size: 2.5em; margin: 20px 0; }
-    #counter { font-size: 1.2em; margin-bottom: 10px; }
-    input[type="text"] { font-size: 1.4em; padding: 5px; width: 100%; }
-    button { padding: 10px 20px; margin-top: 10px; font-size: 1em; }
-    .result { margin-top: 15px; font-weight: bold; font-size: 1.3em; }
-    .correct { color: green; }
-    .incorrect { color: red; }
-    #pronounceBreakdown { margin-top: 8px; font-size: 1.2em; font-weight: bold; color: #333; }
-    .controls { margin-bottom: 20px; }
-    .syllables { color: #0066cc; font-size: 1.3em; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flashcard Spelling Checker - Pages</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  .flashcard { max-width: 400px; margin: auto; text-align: center; }
+  .word { font-size: 2.5em; margin: 20px 0; }
+  input[type="text"] { font-size: 1.4em; padding: 5px; width: 100%; }
+  button { padding: 10px 20px; margin-top: 10px; font-size: 1em; }
+  .result { margin-top: 15px; font-weight: bold; font-size: 1.3em; }
+  .correct { color: green; }
+  .incorrect { color: red; }
+  .controls { margin-bottom: 20px; }
+</style>
 </head>
 <body>
-  <div class="flashcard">
-    <div class="controls">
-      <label for="pageSelect">Choose page: </label>
-      <select id="pageSelect">
-        <option value="0">Page 1</option>
-        <option value="1">Page 2</option>
-        <option value="2">Page 3</option>
-      </select>
-    </div>
-    <div id="counter"></div>
-    <div class="word" id="wordDisplay"></div>
-    <button id="speakBtn">🔊 Listen</button>
-    <input type="text" id="spellingInput" placeholder="Type the spelling here" autocomplete="off" />
-    <button id="checkBtn">Check Spelling</button>
-    <div class="result" id="resultDisplay"></div>
-    <div id="pronounceBreakdown"></div>
-    <div id="wordInfo" style="margin-top:8px; font-size:1em; color:#444"></div>
-    <button id="nextBtn" style="display:none;">Next Word</button>
+
+<div class="flashcard">
+  <div class="controls">
+    <label for="pageSelect">Choose page: </label>
+    <select id="pageSelect"></select>
   </div>
-  
-  <!-- Hyphenation status moved below the flashcard to avoid crowding the word/meaning area -->
-  <div id="hypherStatus" aria-live="polite" style="margin:18px auto 0; max-width:400px; text-align:center; font-size:0.95em; color:#666">Loading hyphenation patterns...</div>
+  <div class="word" id="wordDisplay"></div>
+  <button id="speakBtn">🔊 Listen</button>
+  <input type="text" id="spellingInput" placeholder="Type the spelling here" autocomplete="off" />
+  <button id="checkBtn">Check Spelling</button>
+  <div class="result" id="resultDisplay"></div>
+  <button id="nextBtn" style="display:none;">Next Word</button>
+</div>
 
-  <script>
-    const pages = [
-      ["almanac","hippies","samosas","campaign","pistachio","mosque","zombielike","warlock","colossus","convulsively","dimensional","garishly","graffitist","Everest","dexterity","cavorting","marauder","conscience","battlements","deferential","albatross","khaki","opalescent","asphalt","Yiddish","talcum","tranquilizer","equestrian","plaited","monsieur","manticores","prestigious","fraidycat","guttural","lo","mein","courier","sans","serif","psyche","stucco","Frankenstein","schema","et cetera","vidimus","delphine","slough","archipelago","serape","sarape","puissance","pinioning","chignon","pheromone","galleon","magnanimous","chartreuse","wainscoting","Nehru"],
-    ];
+<script>
+  // Array of pages, each is an array of words
+  const pages = [
+    ["example", "language", "programming", "javascript", "flashcard"],
+    ["apple", "banana", "cherry", "date", "elderberry"],
+    ["sun", "moon", "star", "planet", "galaxy"]
+  ];
 
-    // Small manual hyphenation dictionary for immediate reliability (override/fallback).
-    // Add any words here that need guaranteed splits (e.g., 'geranium').
-    const manualHyphenation = {
-      'geranium': ['ge','ra','ni','um'],
-      'almanac': ['al','ma','nac'],
-      'hippies': ['hip','pies'],
-      'samosas': ['sa','mo','sas'],
-      'campaign': ['cam','paign'],
-      'pistachio': ['pis','ta','chio'],
-      'mosque': ['mosque'],
-      'zombielike': ['zom','bie','like'],
-      'warlock': ['war','lock'],
-      'colossus': ['co','los','sus'],
-      'convulsively': ['con','vul','sive','ly'],
-      'dimensional': ['di','men','sion','al'],
-      'garishly': ['gar','ish','ly'],
-      'graffitist': ['graf','fi','tist'],
-      'everest': ['ev','er','est'],
-      'dexterity': ['dex','ter','i','ty'],
-      'cavorting': ['ca','vor','ting'],
-      'marauder': ['ma','raud','er'],
-      'conscience': ['con','science'],
-      'battlements': ['bat','tle','ments'],
-      'deferential': ['de','fer','en','tial'],
-      'albatross': ['al','ba','tross'],
-      'khaki': ['kha','ki'],
-      'opalescent': ['o','pa','les','cent'],
-      'asphalt': ['as','phalt'],
-      'yiddish': ['yid','dish'],
-      'talcum': ['tal','cum'],
-      'tranquilizer': ['tran','quil','iz','er'],
-      'equestrian': ['e','ques','trian'],
-      'plaited': ['plait','ed'],
-      'monsieur': ['mon','sieur'],
-      'manticores': ['man','ti','cores'],
-      'prestigious': ['pres','ti','gious'],
-      'fraidycat': ['frai','dy','cat'],
-      'guttural': ['gut','tur','al'],
-      'lo': ['lo'],
-      'mein': ['mein'],
-      'courier': ['cour','ier'],
-      'sans': ['sans'],
-      'serif': ['se','rif'],
-      'psyche': ['psy','che'],
-      'stucco': ['stuc','co'],
-      'frankenstein': ['frank','en','stein'],
-      'schema': ['sche','ma'],
-      'et cetera': ['et','ce','te','ra'],
-      'vidimus': ['vi','di','mus'],
-      'delphine': ['del','phine'],
-      'slough': ['slough'],
-      'archipelago': ['ar','chi','pel','a','go'],
-      'serape': ['se','rape'],
-      'sarape': ['sa','rape'],
-      'puissance': ['puis','sance'],
-      'pinioning': ['pin','ion','ing'],
-      'chignon': ['chi','gnon'],
-      'pheromone': ['phe','ro','mone'],
-      'galleon': ['gal','le','on'],
-      'magnanimous': ['mag','nan','i','mous'],
-      'chartreuse': ['char','treuse'],
-      'wainscoting': ['wains','cot','ing'],
-      'nehru': ['neh','ru']
-    };
-
-    let synth;
-    let voices = [];
-    // Dictionary API helper: fetch definition, phonetic, and audio URL
-    async function getWordDetails(word) {
-      try {
-        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-        const data = await response.json();
-
-        if (Array.isArray(data) && data[0]) {
-          const wordData = data[0];
-          const definition = wordData.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found';
-          const audioUrl = (wordData.phonetics || []).find(p => p.audio)?.audio || '';
-          const phonetic = wordData.phonetic || (wordData.phonetics || [])[0]?.text || '';
-          return { definition, audioUrl, phonetic };
-        } 
-      } catch (error) {
-        console.error('Error fetching word:', error);
-      }
-      return null;
+  // Helper to shuffle an array (Fisher-Yates)
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
     }
+    return array;
+  }
 
-    // Play pronunciation audio URL
-    // Play pronunciation audio URL. Returns a Promise that resolves `true` when playback
-    // starts successfully, or `false` if playback fails or no URL provided.
-    function playPronunciation(audioUrl) {
-      if (!audioUrl) return Promise.resolve(false);
-      try {
-        const audio = new Audio(audioUrl);
-        const playPromise = audio.play();
-        if (playPromise && typeof playPromise.then === 'function') {
-          return playPromise.then(() => true).catch(e => {
-            console.warn('Audio play failed:', e);
-            return false;
-          });
-        }
-        // If play() did not return a promise, assume success.
-        return Promise.resolve(true);
-      } catch (e) {
-        console.warn('Audio play threw:', e);
-        return Promise.resolve(false);
-      }
+  // DOM elements
+  const pageSelect = document.getElementById('pageSelect');
+  const wordDisplay = document.getElementById('wordDisplay');
+  const speakBtn = document.getElementById('speakBtn');
+  const spellingInput = document.getElementById('spellingInput');
+  const checkBtn = document.getElementById('checkBtn');
+  const resultDisplay = document.getElementById('resultDisplay');
+  const nextBtn = document.getElementById('nextBtn');
+
+  let currentPage = 0;
+  let words = [];
+  let currentIndex = 0;
+
+  // Initialize dropdown
+  function populatePages() {
+    for (let i = 0; i < pages.length; i++) {
+      const option = document.createElement('option');
+      option.value = i;
+      option.textContent = `Page ${i + 1}`;
+      pageSelect.appendChild(option);
     }
+  }
 
-    // Dynamically load Hypher (UMD) and English hyphenation patterns from CDN.
-    // If successful, `window._hypher` will be available and used by getSyllableBreakdown.
-    function loadHypherFromCDN() {
-      // Load Hypher (UMD build)
-      function loadScript(src, cb) {
-        const s = document.createElement('script');
-        s.src = src;
-        s.crossOrigin = 'anonymous';
-        s.onload = () => cb(null);
-        s.onerror = (e) => cb(e || new Error('Failed to load ' + src));
-        document.head.appendChild(s);
-      }
+  // Handle page selection
+  pageSelect.addEventListener('change', () => {
+    currentPage = parseInt(pageSelect.value);
+    startPage();
+  });
 
-      // Try multiple CDN sources for Hypher and for the English patterns to be resilient to 404s.
-      // Include the requested cdnjs Hyphenator build first, then fall back to hypher builds.
-      const hypherCDNs = [
-        'https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/Hyphenator.min.js',
-        'https://cdn.jsdelivr.net/npm/hypher@0.2.5/dist/hypher.js',
-        'https://cdn.jsdelivr.net/npm/hypher/dist/hypher.js',
-        'https://unpkg.com/hypher@0.2.5/dist/hypher.js',
-        'https://unpkg.com/hypher/dist/hypher.js'
-      ];
+  // Show a new word
+  function showWord() {
+    spellingInput.value = "";
+    resultDisplay.textContent = "";
+    resultDisplay.className = "result";
+    nextBtn.style.display = "none";
+    spellingInput.disabled = false;
+    checkBtn.disabled = false;
+    wordDisplay.textContent = "Spell this word:";
+  }
 
-      // Try cdnjs patterns for Hyphenator first, then other sources for hyphenation.en-us patterns.
-      const patternCDNs = [
-        'https://cdnjs.cloudflare.com/ajax/libs/Hyphenator/5.3.0/patterns/en-us.min.js',
-        'https://cdn.jsdelivr.net/npm/hyphenation.en-us@1.2.0/index.js',
-        'https://cdn.jsdelivr.net/npm/hyphenation.en-us/index.js',
-        'https://unpkg.com/hyphenation.en-us@1.2.0/index.js',
-        'https://unpkg.com/hyphenation.en-us/index.js'
-      ];
-
-      function loadSequential(list, cb) {
-        let i = 0;
-        function next() {
-          if (i >= list.length) return cb(new Error('no sources succeeded'));
-          loadScript(list[i], (err) => {
-            if (!err) return cb(null, list[i]);
-            i++;
-            next();
-          });
-        }
-        next();
-      }
-
-      
-
-
-      // Load Hypher first, then patterns
-      loadSequential(hypherCDNs, (err, usedHypher) => {
-        if (err) return console.warn('Hypher failed to load from CDNs:', err);
-        console.log('Hypher loaded from', usedHypher);
-
-        loadSequential(patternCDNs, (err2, usedPattern) => {
-          if (err2) {
-            console.warn('English hyphenation patterns failed to load from CDNs:', err2);
-            // Patterns not found via UMD builds; try ESM fallback in tryInstantiateHypher
-            tryInstantiateHypher();
-            return;
-          }
-          console.log('Hyphenation patterns loaded from', usedPattern);
-          tryInstantiateHypher();
-        });
-      });
-
-      function tryInstantiateHypher() {
-        // Try several possible global names that pattern UMD builds might use.
-        const candidates = [
-          window.hyphenationEnUs,
-          window.hyphenation?.enUs,
-          window.enUs,
-          window['hyphenation.en-us'],
-          window['patterns']
-        ];
-
-        let patterns = null;
-        for (const c of candidates) {
-          if (c && typeof c === 'object') {
-            patterns = c;
-            break;
-          }
-        }
-
-        // Some builds put the patterns directly on a global named like `hyphenationEnUs` or `enUS` —
-        // others attach an object with a `patterns` property. Try a few shapes.
-        if (!patterns) {
-          const tryNames = ['hyphenationEnUs', 'enUs', 'enUS', 'patterns', 'hyphenation'];
-          for (const n of tryNames) {
-            const val = window[n];
-            if (val && typeof val === 'object') {
-              patterns = val;
-              break;
-            }
-          }
-        }
-
-        if (!patterns) {
-          // If patterns aren't available via UMD builds, do NOT inject an ESM module fallback
-          // (that was causing browsers to request failing unpkg ?module URLs). Instead, mark
-          // that Hypher isn't available and rely on the manual dictionary + local algorithm.
-          console.warn('Hyphenation patterns not found on window after script load. ESM fallback disabled.');
-          window._hypherFailed = true;
-          return;
-        }
-
-        try {
-          // If the Hyphenator library (from cdnjs) is present, create an adapter that
-          // exposes a `hyphenate(word)` method similar to Hypher's API by using
-          // a temporary DOM element and letting Hyphenator insert soft-hyphens.
-          if (window.Hyphenator) {
-            window._hypher = {
-              hyphenate(word) {
-                try {
-                  const span = document.createElement('span');
-                  span.textContent = word;
-                  span.style.position = 'absolute';
-                  span.style.left = '-9999px';
-                  // Hyphenator typically only processes elements in the document
-                  document.body.appendChild(span);
-
-                  // If Hyphenator provides a specific API, use it, otherwise run the global
-                  if (typeof window.Hyphenator.hyphenateElement === 'function') {
-                    window.Hyphenator.hyphenateElement(span);
-                  } else if (typeof window.Hyphenator.hyphenate === 'function') {
-                    window.Hyphenator.hyphenate(span);
-                  } else {
-                    // Add class and run full processing as a fallback
-                    span.className = 'Hyphenator';
-                    if (typeof window.Hyphenator.addElement === 'function') {
-                      window.Hyphenator.addElement(span);
-                    }
-                    if (typeof window.Hyphenator.run === 'function') {
-                      window.Hyphenator.run();
-                    }
-                  }
-
-                  // Hyphenator inserts soft hyphens (U+00AD) into innerHTML
-                  const html = span.innerHTML || '';
-                  document.body.removeChild(span);
-                  const parts = html.split('\u00AD').filter(Boolean);
-                  return parts.length ? parts : [word];
-                } catch (e) {
-                  return [word];
-                }
-              }
-            };
-            console.log('Hyphenator adapter created for Hyphenator global.');
-            return;
-          }
-
-          // Create Hypher instance (Hypher constructor exposed by the Hypher UMD build)
-          if (typeof window.Hypher === 'function') {
-            window._hypher = new window.Hypher(patterns);
-            console.log('Hypher loaded and ready.');
-          } else {
-            console.warn('Hypher UMD not found on window.');
-          }
-        } catch (e) {
-          console.warn('Failed to instantiate Hypher or adapter:', e);
-        }
-      }
-    }
-
-    function pronounceWord(word) {
-      if (!('speechSynthesis' in window)) {
-        alert('Speech synthesis not supported');
-        return;
-      }
-
-      // Ensure we have a reference to the synth and voices at speak time.
-      synth = window.speechSynthesis || synth;
-      try {
-        voices = synth.getVoices() || voices;
-      } catch (e) {
-        alert('speechSynthesis.getVoices() threw:', e);
-        // getVoices can throw in some environments; ignore and proceed.
-      }
-
-      // If voices aren't loaded yet (common on iOS), try to warm them synchronously.
-      if (!voices || voices.length === 0) {
-        try {
-          const warm = new SpeechSynthesisUtterance('a');
-          synth.speak(warm);
-          synth.cancel();
-          voices = synth.getVoices() || voices;
-        } catch (e) {
-          alert('speechSynthesis warm-up failed:', e);
-          // ignore warming errors
-        }
-      }
-      alert('playing: '+word)
-
+  // Speak current word
+  function pronounceWord(word) {
+    if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(word);
-      // Pick any English-like voice, tolerate variations like 'en', 'en-US', 'en_US'
-      const niceVoice = (voices || []).find(v => (v.lang || '').toLowerCase().startsWith('en')) || (voices && voices[0]);
-      if (!niceVoice) alert('No Nice Voice => ' + JSON.stringify(voices))
-      if (niceVoice) utterance.voice = niceVoice;
-      utterance.rate = 0.8;
-      utterance.pitch = 1.0;
-
-      try {
-        // Cancel any existing utterances to avoid queueing on mobile browsers.
-        synth.cancel();
-        synth.speak(utterance);
-      } catch (err) {
-        alert('speechSynthesis.speak failed:', err);
-        console.warn('speechSynthesis.speak failed:', err);
-      }
+      speechSynthesis.speak(utterance);
+    } else {
+      alert('Speech synthesis not supported in this browser.');
     }
+  }
 
-    // Syllable breakdown: prefer Hypher when loaded (via `loadHypherFromCDN`), otherwise use local fallback.
-    function getSyllableBreakdown(word) {
-      if (!word) return word;
+  speakBtn.addEventListener('click', () => {
+    pronounceWord(words[currentIndex]);
+  });
 
-      const lower = word.toLowerCase();
-      // Manual dictionary override
-      if (manualHyphenation[lower]) {
-        return manualHyphenation[lower].join('·');
-      }
-
-      // Prefer Hypher hyphenation if available (returns array of parts)
-      if (window._hypher && typeof window._hypher.hyphenate === 'function') {
-        try {
-          const parts = window._hypher.hyphenate(word);
-          if (parts && parts.length > 0) return parts.join('·');
-        } catch (e) {
-          // Fall through to fallback algorithm
-          console.warn('Hypher hyphenation failed, falling back:', e);
-        }
-      }
-
-      // Fallback simple syllable algorithm (keeps existing behavior)
-      const vowels = 'aeiouy';
-      const syllables = [];
-      let currentSyllable = '';
-      let prevWasVowel = false;
-
-      for (let i = 0; i < word.length; i++) {
-        const char = word[i].toLowerCase();
-        const isVowel = vowels.includes(char);
-
-        currentSyllable += word[i];
-
-        if (prevWasVowel && !isVowel && i < word.length - 1) {
-          const nextChar = word[i + 1].toLowerCase();
-          if (vowels.includes(nextChar)) {
-            syllables.push(currentSyllable.slice(0, -1));
-            currentSyllable = word[i];
-          }
-        }
-
-        prevWasVowel = isVowel;
-      }
-
-      if (currentSyllable) {
-        syllables.push(currentSyllable);
-      }
-
-      const cleaned = [];
-      for (let i = 0; i < syllables.length; i++) {
-        if (syllables[i].length === 1 && cleaned.length > 0) {
-          cleaned[cleaned.length - 1] += syllables[i];
-        } else if (syllables[i].length > 0) {
-          cleaned.push(syllables[i]);
-        }
-      }
-
-      if (cleaned.length > 1 && cleaned[cleaned.length - 1].toLowerCase() === 'e') {
-        cleaned[cleaned.length - 2] += cleaned.pop();
-      }
-
-      return cleaned.join('·') || word;
+  checkBtn.addEventListener('click', () => {
+    const userSpelling = spellingInput.value.trim().toLowerCase();
+    const correctWord = words[currentIndex];
+    if (userSpelling === correctWord.toLowerCase()) {
+      resultDisplay.textContent = `Correct! The spelling is: ${correctWord}`;
+      resultDisplay.className = "result correct";
+    } else {
+      resultDisplay.textContent = `Incorrect. The correct spelling is: ${correctWord}`;
+      resultDisplay.className = "result incorrect";
     }
+    spellingInput.disabled = true;
+    checkBtn.disabled = true;
+    nextBtn.style.display = "inline-block";
+  });
 
-    document.addEventListener('DOMContentLoaded', function() {
-      // Start loading Hypher patterns in the background and update UI when ready.
-      loadHypherFromCDN();
-
-      synth = window.speechSynthesis;
-      voices = synth.getVoices();
-      synth.onvoiceschanged = () => {
-        voices = synth.getVoices();
-      };
-
-      const pageSelect = document.getElementById('pageSelect');
-      const counter = document.getElementById('counter');
-      const wordDisplay = document.getElementById('wordDisplay');
-      const speakBtn = document.getElementById('speakBtn');
-      const spellingInput = document.getElementById('spellingInput');
-      const checkBtn = document.getElementById('checkBtn');
-      const resultDisplay = document.getElementById('resultDisplay');
-      const pronounceBreakdown = document.getElementById('pronounceBreakdown');
-      const hypherStatus = document.getElementById('hypherStatus');
-      const nextBtn = document.getElementById('nextBtn');
-
-      let currentPage = 0;
-      let words = [];
-      let currentIndex = 0;
-
-      function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
-      }
-
-      function updateCounter() {
-        counter.textContent = `Word ${currentIndex + 1} of ${words.length}`;
-      }
-
-      pageSelect.addEventListener('change', () => {
-        currentPage = parseInt(pageSelect.value);
-        startPage();
-      });
-
-      function showWord() {
-        spellingInput.value = "";
-        resultDisplay.innerHTML = "";
-        resultDisplay.className = "result";
-        pronounceBreakdown.textContent = "";
-        // Clear previous dictionary/meaning info when showing a new word.
-        const infoEl = document.getElementById('wordInfo');
-        if (infoEl) infoEl.textContent = '';
-        nextBtn.style.display = "none";
-        spellingInput.disabled = false;
-        checkBtn.disabled = false;
-        wordDisplay.textContent = "Spell this word:";
-        updateCounter();
-        // Update hyphenation status for the currently shown word.
-        try {
-          const cw = words[currentIndex] || '';
-          if (window._hypher && typeof window._hypher.hyphenate === 'function') {
-            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (using Hypher)';
-          } else if (cw && manualHyphenation[cw.toLowerCase()]) {
-            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (manual dictionary)';
-          } else if (window._hypherFailed) {
-            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: using fallback algorithm';
-          } else {
-            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: loading...';
-          }
-        } catch (e) {
-          // ignore errors updating status
-        }
-      }
-
-      speakBtn.addEventListener('click', async () => {
-        const word = words[currentIndex];
-        if (!word) return;
-
-        const infoEl = document.getElementById('wordInfo');
-        infoEl.textContent = 'Loading definition...';
-        let playedDictAudio = false;
-        // Try to fetch dictionary details (definition, phonetic, audio)
-        try {
-          const details = await getWordDetails(word.toLowerCase());
-          const breakdown = getSyllableBreakdown(word);
-
-          
-          if (details) {
-            const def = details.definition || 'No definition found.';
-            const phon = details.phonetic || '';
-            // Show definition AND syllable breakdown. If audio exists, attempt to play it,
-            // but always provide a fallback TTS button the user can press.
-            infoEl.innerHTML = `
-              
-              <div style="margin-top:6px">${def}</div>
-              
-            `;
-            //<div><strong>${word}</strong> ${phon ? ' — ' + phon : ''}</div>
-            //<div style="margin-top:8px" class="syllables">${breakdown}</div>
-
-            // If audio URL is available, try to play it (may fail due to CORS).
-            if (details.audioUrl) {
-              try {
-                playedDictAudio = await playPronunciation(details.audioUrl);
-              } catch (e) {
-                playedDictAudio = false;
-              }
-            }
-
-          } else {
-            // No dictionary entry found — show the word and a syllable breakdown and TTS button.
-            infoEl.innerHTML = `
-             
-              
-            `;
-            // <div><strong>${word}</strong></div>
-            //<div style="margin-top:6px" class="syllables">${breakdown}</div>
-          }
-        } catch (e) {
-          console.warn('Error fetching dictionary entry', e);
-          // On error, fallback to showing the word and syllable breakdown plus TTS button.
-          const breakdown = getSyllableBreakdown(word);
-          infoEl.innerHTML = `
-            
-            
-          `;
-          //<div><strong>${word}</strong></div>
-          //<div style="margin-top:6px" class="syllables">${breakdown}</div>
-        }
-
-        alert(playedDictAudio ? 'Played dictionary pronunciation audio.' : 'Using text-to-speech pronunciation.');
-
-        // If dictionary audio did not play (no URL, CORS or playback error), use TTS fallback.
-        if (!playedDictAudio) {
-          pronounceWord(word);
-        }
-      });
-
-      // On touchstart/pointerdown we try to warm up speechSynthesis and voices on mobile (iOS WebKit-based browsers).
-      function warmVoices() {
-        if (!('speechSynthesis' in window)) return;
-        try {
-          synth = window.speechSynthesis;
-          voices = synth.getVoices() || voices;
-          if (!voices || voices.length === 0) {
-            // Speak and cancel a silent utterance to prompt the UA to load voices.
-            const u = new SpeechSynthesisUtterance('');
-            synth.speak(u);
-            synth.cancel();
-            voices = synth.getVoices() || voices;
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      speakBtn.addEventListener('touchstart', warmVoices, {passive: true});
-      speakBtn.addEventListener('pointerdown', warmVoices, {passive: true});
-
-      checkBtn.addEventListener('click', () => {
-        const userSpelling = spellingInput.value.trim().toLowerCase();
-        const correctWord = words[currentIndex];
-
-        if (correctWord && userSpelling === correctWord.toLowerCase()) {
-          resultDisplay.innerHTML = `Correct! The spelling is: <strong>${correctWord}</strong>`;
-          resultDisplay.className = "result correct";
-        } else if (correctWord) {
-          resultDisplay.innerHTML = `Incorrect. The correct spelling is: <strong>${correctWord}</strong>`;
-          resultDisplay.className = "result incorrect";
-          
-        }
-
-        // Get syllable breakdown
-        const syllabified = getSyllableBreakdown(correctWord);
-        pronounceBreakdown.innerHTML = `<span class="syllables">${syllabified}</span>`;
-
-        spellingInput.disabled = true;
-        checkBtn.disabled = true;
-        nextBtn.style.display = "inline-block";
-      });
-
-      nextBtn.addEventListener('click', () => {
-        currentIndex++;
-        if (currentIndex >= words.length) {
-          startPage();
-        } else {
-          showWord();
-        }
-      });
-
-      function startPage() {
-        words = shuffle([...pages[currentPage]]);
-        currentIndex = 0;
-        showWord();
-      }
-
-      // Periodically check whether Hypher became available and update the status indicator.
-      (function pollHypherStatus() {
-        if (window._hypher && typeof window._hypher.hyphenate === 'function') {
-          if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (using Hypher)';
-          return;
-        }
-
-        if (window._hypherFailed) {
-          if (hypherStatus) hypherStatus.textContent = 'Hyphenation: unavailable — using fallback algorithm';
-          return;
-        }
-
-        // Re-check a couple times while CDN scripts may still be loading.
-        let checks = 0;
-        const interval = setInterval(() => {
-          checks++;
-          if (window._hypher && typeof window._hypher.hyphenate === 'function') {
-            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: ready (using Hypher)';
-            clearInterval(interval);
-            return;
-          }
-          if (window._hypherFailed || checks > 6) {
-            if (hypherStatus) hypherStatus.textContent = 'Hyphenation: using fallback algorithm';
-            clearInterval(interval);
-          }
-        }, 500);
-      })();
-
-      // Start the quiz
+  nextBtn.addEventListener('click', () => {
+    currentIndex++;
+    if (currentIndex >= words.length) {
+      // reshuffle and restart for the page
       startPage();
-    });
-  </script>
+    } else {
+      showWord();
+    }
+  });
+
+  // Start at the selected page, shuffle words
+  function startPage() {
+    words = shuffle([...pages[currentPage]]);
+    currentIndex = 0;
+    showWord();
+  }
+
+  populatePages();
+  // Select first page by default
+  pageSelect.selectedIndex = 0;
+  startPage();
+</script>
+
 </body>
 </html>
